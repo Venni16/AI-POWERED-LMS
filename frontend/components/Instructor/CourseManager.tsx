@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { instructorAPI } from '../../lib/api';
 import { Course, Video } from '../../types';
+import VideoPlayer from '../common/VideoPlayer';
 
 export default function CourseManager() {
   const [courses, setCourses] = useState<Course[]>([]);
@@ -95,7 +96,7 @@ const handleCreateCourse = async (e: React.FormEvent) => {
 
   const handleEditSummary = (video: Video) => {
     setEditingSummary({
-      videoId: video._id,
+      videoId: video.id,
       summary: video.editedSummary || video.summary
     });
   };
@@ -223,23 +224,34 @@ const handleCreateCourse = async (e: React.FormEvent) => {
 
           <div className="space-y-6">
             {courses.map((course) => (
-              <div key={course._id} className="border border-gray-200 rounded-lg p-6">
+              <div key={course.id} className="border border-gray-200 rounded-lg p-6">
                 <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h4 className="text-xl font-semibold text-gray-900">{course.title}</h4>
-                    <p className="text-gray-600 mt-1">{course.description}</p>
-                    <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
-                      <span>Category: {course.category}</span>
-                      <span>•</span>
-                      <span>Price: ${course.price}</span>
-                      <span>•</span>
-                      <span>Students: {course.enrollmentCount}</span>
-                      <span>•</span>
-                      <span>Videos: {course.videos?.length || 0}</span>
+                  <div className="flex-1">
+                    <div className="flex items-start space-x-4">
+                      {course.thumbnail && (
+                        <img
+                          src={course.thumbnail}
+                          alt={course.title}
+                          className="w-24 h-24 object-cover rounded-lg flex-shrink-0"
+                        />
+                      )}
+                      <div className="flex-1">
+                        <h4 className="text-xl font-semibold text-gray-900">{course.title}</h4>
+                        <p className="text-gray-600 mt-1">{course.description}</p>
+                        <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
+                          <span>Category: {course.category}</span>
+                          <span>•</span>
+                          <span>Price: ${course.price}</span>
+                          <span>•</span>
+                          <span>Students: {course.enrollmentCount}</span>
+                          <span>•</span>
+                          <span>Videos: {course.videos?.length || 0}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   <button
-                    onClick={() => toggleCoursePublish(course._id, course.isPublished)}
+                    onClick={() => toggleCoursePublish(course.id, course.isPublished)}
                     className={`px-3 py-1 rounded text-sm font-medium ${
                       course.isPublished
                         ? 'bg-green-100 text-green-800 hover:bg-green-200'
@@ -257,7 +269,7 @@ const handleCreateCourse = async (e: React.FormEvent) => {
                   {course.videos && course.videos.length > 0 ? (
                     <div className="space-y-4">
                       {course.videos.map((video) => (
-                        <div key={video._id} className="border border-gray-200 rounded-lg p-4">
+                        <div key={video.id} className="border border-gray-200 rounded-lg p-4">
                           <div className="flex justify-between items-start">
                             <div className="flex-1">
                               <h6 className="font-medium text-gray-900">{video.title}</h6>
@@ -281,13 +293,7 @@ const handleCreateCourse = async (e: React.FormEvent) => {
                               {video.status === 'completed' && (
                                 <div className="mt-3">
                                   <div className="bg-black rounded-lg overflow-hidden max-w-md">
-                                    <video
-                                      src={`http://localhost:5000/uploads/videos/${video.filename}`}
-                                      controls
-                                      className="w-full h-48 object-contain"
-                                    >
-                                      Your browser does not support the video tag.
-                                    </video>
+                                    <VideoPlayer videoId={video.id} />
                                   </div>
                                 </div>
                               )}
@@ -305,7 +311,7 @@ const handleCreateCourse = async (e: React.FormEvent) => {
                                     </button>
                                   </div>
                                   
-                                  {editingSummary?.videoId === video._id ? (
+                                  {editingSummary?.videoId === video.id ? (
                                     <div className="space-y-3">
                                       <textarea
                                         value={editingSummary.summary}
@@ -318,7 +324,7 @@ const handleCreateCourse = async (e: React.FormEvent) => {
                                       />
                                       <div className="flex space-x-2">
                                         <button
-                                          onClick={() => handleSaveSummary(course._id)}
+                                          onClick={() => handleSaveSummary(course.id)}
                                           className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
                                         >
                                           Save
@@ -350,7 +356,7 @@ const handleCreateCourse = async (e: React.FormEvent) => {
                             {/* Delete Button */}
                             <div className="ml-4">
                               <button
-                                onClick={() => handleDeleteVideo(course._id, video._id)}
+                                onClick={() => handleDeleteVideo(course.id, video.id)}
                                 className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 transition-colors"
                               >
                                 Delete

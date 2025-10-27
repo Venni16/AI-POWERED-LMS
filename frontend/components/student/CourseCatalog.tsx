@@ -30,7 +30,7 @@ export default function CourseCatalog() {
   const fetchEnrolledCourses = async () => {
     try {
       const response = await studentAPI.getMyCourses();
-      const enrolledIds = response.data.courses.map((course: Course) => course._id);
+      const enrolledIds = response.data.courses.map((course: Course) => course.id);
       setEnrolledCourses(enrolledIds);
     } catch (error) {
       console.error('Error fetching enrolled courses:', error);
@@ -107,10 +107,10 @@ export default function CourseCatalog() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredCourses.map((course) => (
-              <div key={course._id} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-                {course.thumbnail ? (
+              <div key={course.id} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+                {course.thumbnailUrl ? (
                   <img
-                    src={course.thumbnail}
+                    src={course.thumbnailUrl}
                     alt={course.title}
                     className="w-full h-48 object-cover"
                   />
@@ -144,15 +144,15 @@ export default function CourseCatalog() {
                   </div>
 
                   <button
-                    onClick={() => handleEnroll(course._id)}
-                    disabled={enrolledCourses.includes(course._id)}
+                    onClick={() => handleEnroll(course.id)}
+                    disabled={enrolledCourses.includes(course.id)}
                     className={`w-full py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                      enrolledCourses.includes(course._id)
+                      enrolledCourses.includes(course.id)
                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                         : 'bg-blue-600 text-white hover:bg-blue-700'
                     }`}
                   >
-                    {enrolledCourses.includes(course._id) ? 'Already Enrolled' : 'Enroll Now'}
+                    {enrolledCourses.includes(course.id) ? 'Already Enrolled' : 'Enroll Now'}
                   </button>
                 </div>
               </div>

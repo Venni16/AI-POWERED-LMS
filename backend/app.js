@@ -12,6 +12,7 @@ import instructorRoutes from './routes/instructor.js';
 import studentRoutes from './routes/student.js';
 import coursesRoutes from './routes/courses.js';
 import videoRoutes from './routes/video.js';
+import debugRoutes from './routes/debug.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -49,6 +50,9 @@ app.use('/api/instructor', instructorRoutes);
 app.use('/api/student', studentRoutes);
 app.use('/api/courses', coursesRoutes);
 app.use('/api/video', videoRoutes);
+app.use('/api/debug', debugRoutes);
+
+// Health check route
 
 app.get('/health', (req, res) => {
   res.json({ 
@@ -71,17 +75,16 @@ app.get('/', (req, res) => {
 
 // Initialize default admin user
 const initializeAdmin = async () => {
-  const User = (await import('./models/User.js')).default;
-  
-  const adminExists = await User.findOne({ role: 'admin' });
-  if (!adminExists) {
-    const admin = new User({
+  const { User } = await import('./models/User.js');
+
+  const admins = await User.findByRole('admin');
+  if (admins.length === 0) {
+    await User.create({
       name: 'System Administrator',
       email: 'admin@lms.com',
       password: 'admin123',
       role: 'admin'
     });
-    await admin.save();
     console.log('Default admin user created: admin@lms.com / admin123');
   }
 };

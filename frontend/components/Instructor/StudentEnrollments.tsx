@@ -25,7 +25,7 @@ export default function StudentEnrollments() {
       const response = await instructorAPI.getCourses();
       setCourses(response.data.courses);
       if (response.data.courses.length > 0) {
-        setSelectedCourse(response.data.courses[0]._id);
+        setSelectedCourse(response.data.courses[0].id);
       }
     } catch (error) {
       console.error('Error fetching courses:', error);
@@ -60,7 +60,7 @@ export default function StudentEnrollments() {
             className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
           >
             {courses.map(course => (
-              <option key={course._id} value={course._id}>
+              <option key={course.id} value={course.id}>
                 {course.title} ({course.enrollmentCount} students)
               </option>
             ))}

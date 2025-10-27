@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'next/navigation';
+import GoogleLoginButton from './GoogleLoginButton';
 
 export default function LoginForm() {
   const [email, setEmail] = useState('');
@@ -19,9 +20,12 @@ export default function LoginForm() {
     setLoading(true);
 
     try {
+      console.log('Attempting login with:', email);
       await login(email, password);
+      console.log('Login successful');
       router.push('/dashboard');
     } catch (err: any) {
+      console.error('Login error:', err);
       setError(err.message);
     } finally {
       setLoading(false);

@@ -49,10 +49,10 @@ export default function MyCourses() {
             const progress = calculateProgress(course);
             
             return (
-              <div key={course._id} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-                {course.thumbnail ? (
+              <div key={course.id} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+                {course.thumbnailUrl ? (
                   <img
-                    src={course.thumbnail}
+                    src={course.thumbnailUrl}
                     alt={course.title}
                     className="w-full h-48 object-cover"
                   />
@@ -86,7 +86,7 @@ export default function MyCourses() {
 
                   <div className="flex space-x-2">
                     <Link
-                      href={`/student/courses/${course._id}`}
+                      href={`/student/courses/${course.id}`}
                       className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md text-sm font-medium text-center hover:bg-blue-700 transition-colors"
                     >
                       Continue Learning

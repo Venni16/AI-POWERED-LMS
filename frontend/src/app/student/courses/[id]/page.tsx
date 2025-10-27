@@ -3,33 +3,41 @@
 import { useParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import ProtectedRoute from '../../../../../components/common/ProtectedRoute';
-import { studentAPI } from '../../../../../lib/api';
-import { Course, Video, Material } from '../../../../../types';
+import VideoPlayer from '../../../../../components/common/VideoPlayer';
+import { studentAPI, videoAPI } from '../../../../../lib/api';
+import { Course, Video } from '../../../../../types';
 
 export default function CourseDetailPage() {
   const params = useParams();
-  const courseId = params.id as string;
-  
+  const courseId = Array.isArray(params.id) ? params.id[0] : params.id;
+
   const [course, setCourse] = useState<Course | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeVideo, setActiveVideo] = useState<Video | null>(null);
   const [expandedVideo, setExpandedVideo] = useState<string | null>(null);
+  const [videoError, setVideoError] = useState<string | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    if (courseId) {
+    if (courseId && typeof courseId === 'string') {
       fetchCourseDetails();
+    } else {
+      setLoading(false);
     }
   }, [courseId]);
 
   const fetchCourseDetails = async () => {
     try {
-      const response = await studentAPI.getCourseDetails(courseId);
+      const response = await studentAPI.getCourseDetails(courseId as string);
       setCourse(response.data.course);
       if (response.data.course.videos?.length > 0) {
         setActiveVideo(response.data.course.videos[0]);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching course details:', error);
+      if (error.response?.status === 400) {
+        console.error('Bad request - invalid course ID or enrollment');
+      }
     } finally {
       setLoading(false);
     }
@@ -37,6 +45,43 @@ export default function CourseDetailPage() {
 
   const toggleVideoExpansion = (videoId: string) => {
     setExpandedVideo(expandedVideo === videoId ? null : videoId);
+  };
+
+  const fetchVideoUrl = async (videoId: string) => {
+    try {
+      // Get public URL directly
+      const response = await fetch(`http://localhost:5000/api/video/${videoId}/public-url`);
+      const data = await response.json();
+      if (data.success) {
+        setVideoUrl(data.url);
+        return data.url;
+      }
+    } catch (error) {
+      console.error('Failed to fetch video URL:', error);
+    }
+    return null;
+  };
+
+  const handleVideoError = (e: React.SyntheticEvent<HTMLVideoElement, Event>, video: Video) => {
+    const videoElement = e.target as HTMLVideoElement;
+    const error = videoElement.error;
+    console.error('Video loading error:', error || 'Unknown error');
+    setVideoError(`Failed to load video: ${video.title}`);
+
+    // Try alternative sources
+    const sources = [
+      `http://localhost:5000/api/video/${video.id}/stream`,
+      `http://localhost:5000/uploads/videos/${video.filename}`,
+      courseId ? `http://localhost:5000/api/courses/${courseId as string}/videos/${video.id}/file` : null
+    ].filter(Boolean);
+
+    let currentSourceIndex = sources.findIndex(src => src === videoElement.src);
+    let nextSourceIndex = (currentSourceIndex + 1) % sources.length;
+
+    if (nextSourceIndex > 0 && sources[nextSourceIndex]) {
+      console.log(`Trying alternative video source: ${sources[nextSourceIndex]}`);
+      videoElement.src = sources[nextSourceIndex];
+    }
   };
 
   if (loading) {
@@ -105,29 +150,22 @@ export default function CourseDetailPage() {
                 </div>
                 <div className="p-4">
                   {activeVideo ? (
-                      <div className="space-y-4">
+                    <div className="space-y-4">
+                      {/* Video Player with Error Handling */}
                       <div className="bg-black rounded-lg overflow-hidden">
-                        <video
-                          src={`http://localhost:5000/api/courses/${course._id}/videos/${activeVideo._id}/file`}
-                          controls
-                          className="w-full h-64 md:h-96 object-contain"
-                          onError={(e) => {
-                            console.error('Video loading error:', e);
-                            // Fallback to direct file access
-                            const videoElement = e.target as HTMLVideoElement;
-                            videoElement.src = `http://localhost:5000/uploads/videos/${activeVideo.filename}`;
-                          }}
-                        >
-                          Your browser does not support the video tag.
-                          <source 
-                            src={`http://localhost:5000/api/courses/${course._id}/videos/${activeVideo._id}/file`} 
-                            type={activeVideo.fileType} 
-                          />
-                          <source 
-                            src={`http://localhost:5000/uploads/videos/${activeVideo.filename}`} 
-                            type={activeVideo.fileType} 
-                          />
-                        </video>
+                        {videoError && (
+                          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                            <div className="flex items-center">
+                              <div className="text-red-600 text-lg mr-2">❌</div>
+                              <div>
+                                <p className="text-red-800 font-medium">Video Error</p>
+                                <p className="text-red-600 text-sm">{videoError}</p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        
+                        <VideoPlayer videoId={activeVideo.id} />
                       </div>
                       
                       {/* Video Info */}
@@ -203,14 +241,16 @@ export default function CourseDetailPage() {
                 </div>
                 <div className="max-h-96 overflow-y-auto">
                   {course.videos?.map((video, index) => (
-                    <div key={video._id} className="border-b border-gray-200 last:border-b-0">
+                    <div key={video.id} className="border-b border-gray-200 last:border-b-0">
                       <button
                         onClick={() => {
                           setActiveVideo(video);
                           setExpandedVideo(null);
+                          setVideoError(null);
+                          setVideoUrl(null); // Reset video URL when switching videos
                         }}
                         className={`w-full text-left p-4 hover:bg-gray-50 transition-colors ${
-                          activeVideo?._id === video._id ? 'bg-blue-50 border-l-4 border-l-blue-600' : ''
+                          activeVideo?.id === video.id ? 'bg-blue-50 border-l-4 border-l-blue-600' : ''
                         }`}
                       >
                         <div className="flex items-start space-x-3">
@@ -234,18 +274,18 @@ export default function CourseDetailPage() {
                       {video.status === 'completed' && (
                         <div className="px-4 pb-4 ml-11">
                           <button
-                            onClick={() => toggleVideoExpansion(video._id)}
+                            onClick={() => toggleVideoExpansion(video.id)}
                             className="text-sm text-blue-600 hover:text-blue-500 flex items-center"
                           >
-                            {expandedVideo === video._id ? 'Hide' : 'Show'} AI Summary
+                            {expandedVideo === video.id ? 'Hide' : 'Show'} AI Summary
                             <span className={`ml-1 transform transition-transform ${
-                              expandedVideo === video._id ? 'rotate-180' : ''
+                              expandedVideo === video.id ? 'rotate-180' : ''
                             }`}>
                               ▼
                             </span>
                           </button>
-                          
-                          {expandedVideo === video._id && (
+
+                          {expandedVideo === video.id && (
                             <div className="mt-2 p-3 bg-gray-50 rounded text-sm text-gray-700">
                               {video.editedSummary || video.summary}
                             </div>
@@ -279,14 +319,14 @@ export default function CourseDetailPage() {
                         className="flex items-center p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors last:border-b-0"
                       >
                         <div className="flex-shrink-0 w-8 h-8 bg-gray-100 rounded flex items-center justify-center text-sm text-gray-600">
-                          {material.fileType.includes('pdf') ? '📄' : '📝'}
+                          {(material.fileType && material.fileType.toLowerCase().includes('pdf')) ? '📄' : '📝'}
                         </div>
                         <div className="ml-3 flex-1 min-w-0">
                           <h4 className="text-sm font-medium text-gray-900 truncate">
                             {material.title}
                           </h4>
                           <p className="text-xs text-gray-500">
-                            {material.fileType} • {(material.fileSize / 1024).toFixed(1)} KB
+                            {material.fileType || 'Unknown'} • {(material.fileSize / 1024).toFixed(1)} KB
                           </p>
                         </div>
                       </a>

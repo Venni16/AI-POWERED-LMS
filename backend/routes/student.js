@@ -1,7 +1,7 @@
 import express from 'express';
 import { authenticate, authorize, createAuditLog } from '../middleware/auth.js';
-import Course from '../models/Course.js';
-import User from '../models/User.js';
+import { Course } from '../models/Course.js';
+import { User } from '../models/User.js';
 
 const router = express.Router();
 
@@ -12,10 +12,7 @@ router.use(authorize('student'));
 // Get all available courses
 router.get('/courses', async (req, res) => {
   try {
-    const courses = await Course.find({ isPublished: true })
-      .populate('instructor', 'name profile')
-      .select('-videos -materials -enrolledStudents')
-      .sort({ createdAt: -1 });
+    const courses = await Course.findPublished();
 
     res.json({ success: true, courses });
 
@@ -28,31 +25,38 @@ router.get('/courses', async (req, res) => {
 // Enroll in a course
 router.post('/courses/:courseId/enroll', async (req, res) => {
   try {
+    // Validate user ID and course ID
+    if (!req.user.id || req.user.id === 'undefined') {
+      return res.status(400).json({ error: 'Invalid user ID' });
+    }
+    if (!req.params.courseId || req.params.courseId === 'undefined') {
+      return res.status(400).json({ error: 'Invalid course ID' });
+    }
+
     const course = await Course.findById(req.params.courseId);
 
-    if (!course || !course.isPublished) {
+    if (!course || !course.is_published) {
       return res.status(404).json({ error: 'Course not found or not available' });
     }
 
-    // Check if already enrolled
-    const isEnrolled = course.enrolledStudents.some(
-      enrollment => enrollment.student.toString() === req.user._id.toString()
-    );
+    // Check if already enrolled - using Supabase enrollment table
+    const { Enrollment } = await import('../models/Enrollment.js');
+    const existingEnrollment = await Enrollment.findByStudentAndCourse(req.user.id, req.params.courseId);
 
-    if (isEnrolled) {
+    if (existingEnrollment) {
       return res.status(400).json({ error: 'Already enrolled in this course' });
     }
 
-    // Add to enrolled students
-    course.enrolledStudents.push({
-      student: req.user._id,
-      enrolledAt: new Date()
+    // Create enrollment
+    await Enrollment.create({
+      studentId: req.user.id,
+      courseId: req.params.courseId
     });
 
-    course.enrollmentCount += 1;
-    await course.save();
+    // Update course enrollment count
+    await Course.update(req.params.courseId, { enrollmentCount: course.enrollment_count + 1 });
 
-    await createAuditLog(req, 'ENROLL_COURSE', 'COURSE', { courseId: course._id });
+    await createAuditLog(req, 'ENROLL_COURSE', 'COURSE', { courseId: req.params.courseId });
 
     res.json({ success: true, message: 'Successfully enrolled in course' });
 
@@ -65,16 +69,27 @@ router.post('/courses/:courseId/enroll', async (req, res) => {
 // Get enrolled courses
 router.get('/my-courses', async (req, res) => {
   try {
-    const courses = await Course.find({
-      'enrolledStudents.student': req.user._id,
-      isPublished: true
-    })
-      .populate('instructor', 'name profile')
-      .populate('videos')
-      .populate('materials')
-      .sort({ createdAt: -1 });
+    const courses = await Course.findEnrolledByStudent(req.user.id);
 
-    res.json({ success: true, courses });
+    // Transform courses to match frontend expectations (camelCase)
+    const transformedCourses = courses.map(course => ({
+      ...course,
+      id: course.id,
+      title: course.title,
+      description: course.description,
+      category: course.category,
+      price: course.price,
+      thumbnailUrl: course.thumbnail_url,
+      isPublished: course.is_published,
+      enrollmentCount: course.enrollment_count,
+      createdAt: course.created_at,
+      updatedAt: course.updated_at,
+      instructor: course.instructor,
+      videos: course.videos || [],
+      materials: course.materials || []
+    }));
+
+    res.json({ success: true, courses: transformedCourses });
 
   } catch (error) {
     console.error('Get my courses error:', error);
@@ -85,16 +100,25 @@ router.get('/my-courses', async (req, res) => {
 // Get course details (only if enrolled)
 router.get('/courses/:courseId', async (req, res) => {
   try {
-    const course = await Course.findOne({
-      _id: req.params.courseId,
-      'enrolledStudents.student': req.user._id,
-      isPublished: true
-    })
-      .populate('instructor', 'name profile')
-      .populate('videos')
-      .populate('materials');
+    // Validate user ID and course ID
+    if (!req.user.id || req.user.id === 'undefined') {
+      return res.status(400).json({ error: 'Invalid user ID' });
+    }
+    if (!req.params.courseId || req.params.courseId === 'undefined') {
+      return res.status(400).json({ error: 'Invalid course ID' });
+    }
 
-    if (!course) {
+    // Check if user is enrolled in the course
+    const { Enrollment } = await import('../models/Enrollment.js');
+    const enrollment = await Enrollment.findByStudentAndCourse(req.user.id, req.params.courseId);
+
+    if (!enrollment) {
+      return res.status(404).json({ error: 'Course not found or access denied' });
+    }
+
+    const course = await Course.findById(req.params.courseId);
+
+    if (!course || !course.is_published) {
       return res.status(404).json({ error: 'Course not found or access denied' });
     }
 

@@ -23,7 +23,7 @@ export default function VideoUploader() {
       const response = await instructorAPI.getCourses();
       setCourses(response.data.courses);
       if (response.data.courses.length > 0) {
-        setSelectedCourse(response.data.courses[0]._id);
+        setSelectedCourse(response.data.courses[0].id);
       }
     } catch (error) {
       console.error('Error fetching courses:', error);
@@ -52,8 +52,14 @@ export default function VideoUploader() {
       const uploadData = new FormData();
       uploadData.append('video', formData.video);
       uploadData.append('title', formData.title);
+      uploadData.append('courseId', selectedCourse);
 
-      await instructorAPI.uploadVideo(selectedCourse, uploadData);
+      await instructorAPI.uploadVideo(selectedCourse, uploadData, {
+        onUploadProgress: (progressEvent: any) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setUploadProgress(percentCompleted);
+        }
+      });
       
       alert('Video uploaded successfully! It will be processed automatically.');
       setFormData({ title: '', video: null });
@@ -83,8 +89,8 @@ export default function VideoUploader() {
               required
             >
               <option value="">Select a course</option>
-              {courses.map(course => (
-                <option key={course._id} value={course._id}>
+            {courses.map(course => (
+                <option key={course.id} value={course.id}>
                   {course.title}
                 </option>
               ))}

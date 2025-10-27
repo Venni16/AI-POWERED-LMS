@@ -36,6 +36,9 @@ export const authAPI = {
   register: (name: string, email: string, password: string) =>
     api.post<AuthResponse>('/auth/register', { name, email, password }),
   
+  googleLogin: (token: string) =>
+    api.post<AuthResponse>('/auth/google', { token }),
+  
   getMe: () => api.get<AuthResponse>('/auth/me'),
 };
 
@@ -53,8 +56,13 @@ export const instructorAPI = {
   createCourse: (data: any) => api.post('/instructor/courses', data),
   updateCourse: (courseId: string, data: any) =>
     api.put(`/instructor/courses/${courseId}`, data),
-  uploadVideo: (courseId: string, formData: FormData) =>
-    api.post(`/instructor/courses/${courseId}/videos`, formData),
+  uploadVideo: (courseId: string, formData: FormData, config?: any) =>
+    api.post(`/video/process`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      ...config
+    }),
   uploadMaterial: (courseId: string, formData: FormData) =>
     api.post(`/instructor/courses/${courseId}/materials`, formData),
   getEnrolledStudents: (courseId: string) =>
@@ -72,6 +80,10 @@ export const studentAPI = {
     api.post(`/student/courses/${courseId}/enroll`),
   getCourseDetails: (courseId: string) =>
     api.get(`/student/courses/${courseId}`),
+};
+
+export const videoAPI = {
+  getStream: (videoId: string) => api.get(`/video/${videoId}/stream`),
 };
 
 export const coursesAPI = {

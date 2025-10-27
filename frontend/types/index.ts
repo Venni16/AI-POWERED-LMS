@@ -13,13 +13,14 @@ export interface User {
 }
 
 export interface Course {
-  _id: string;
+  id: string;
   title: string;
   description: string;
   instructor: User;
   category: string;
   price: number;
   thumbnail?: string;
+  thumbnailUrl?: string;
   isPublished: boolean;
   enrollmentCount: number;
   videos: Video[];
@@ -30,7 +31,8 @@ export interface Course {
 }
 
 export interface Video {
-  _id: string;
+  id: string;
+  _id?: string;
   title: string;
   filename: string;
   originalName: string;

@@ -1,8 +1,8 @@
 import express from 'express';
 import { authenticate, authorize, createAuditLog } from '../middleware/auth.js';
-import User from '../models/User.js';
-import Course from '../models/Course.js';
-import AuditLog from '../models/AuditLog.js';
+import { User } from '../models/User.js';
+import { Course } from '../models/Course.js';
+import { AuditLog } from '../models/AuditLog.js';
 
 const router = express.Router();
 
@@ -13,15 +13,12 @@ router.use(authorize('admin'));
 // Get dashboard stats
 router.get('/dashboard', async (req, res) => {
   try {
-    const totalUsers = await User.countDocuments();
-    const totalInstructors = await User.countDocuments({ role: 'instructor' });
-    const totalStudents = await User.countDocuments({ role: 'student' });
-    const totalCourses = await Course.countDocuments();
+    const totalUsers = await User.count();
+    const totalInstructors = await User.findByRole('instructor').then(users => users.length);
+    const totalStudents = await User.findByRole('student').then(users => users.length);
+    const totalCourses = await Course.count();
     
-    const recentLogs = await AuditLog.find()
-      .populate('user', 'name email')
-      .sort({ timestamp: -1 })
-      .limit(10);
+    const recentLogs = await AuditLog.getRecent(10);
 
     res.json({
       success: true,
@@ -43,7 +40,7 @@ router.get('/dashboard', async (req, res) => {
 // Get all users
 router.get('/users', async (req, res) => {
   try {
-    const users = await User.find().select('-password').sort({ createdAt: -1 });
+    const users = await User.findAll();
     res.json({ success: true, users });
   } catch (error) {
     console.error('Get users error:', error);
@@ -56,29 +53,27 @@ router.post('/users/instructor', async (req, res) => {
   try {
     const { name, email, password, specialization } = req.body;
 
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findByEmail(email);
     if (existingUser) {
       return res.status(400).json({ error: 'User already exists with this email' });
     }
 
-    const instructor = new User({
+    const instructor = await User.create({
       name,
       email,
       password,
       role: 'instructor',
-      profile: { specialization }
+      specialization
     });
 
-    await instructor.save();
-
-    await createAuditLog(req, 'CREATE_INSTRUCTOR', 'USER', { 
-      instructorId: instructor._id, email 
+    await createAuditLog(req, 'CREATE_INSTRUCTOR', 'USER', {
+      instructorId: instructor.id, email
     });
 
     res.status(201).json({
       success: true,
       user: {
-        id: instructor._id,
+        id: instructor.id,
         name: instructor.name,
         email: instructor.email,
         role: instructor.role,
@@ -96,18 +91,14 @@ router.post('/users/instructor', async (req, res) => {
 router.patch('/users/:userId/status', async (req, res) => {
   try {
     const { isActive } = req.body;
-    const user = await User.findByIdAndUpdate(
-      req.params.userId,
-      { isActive },
-      { new: true }
-    ).select('-password');
+    const user = await User.update(req.params.userId, { is_active: isActive });
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    await createAuditLog(req, 'UPDATE_USER_STATUS', 'USER', { 
-      userId: user._id, isActive 
+    await createAuditLog(req, 'UPDATE_USER_STATUS', 'USER', {
+      userId: user.id, isActive
     });
 
     res.json({ success: true, user });
@@ -127,13 +118,9 @@ router.get('/audit-logs', async (req, res) => {
     if (action) filter.action = action;
     if (resource) filter.resource = resource;
 
-    const logs = await AuditLog.find(filter)
-      .populate('user', 'name email role')
-      .sort({ timestamp: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
-
-    const total = await AuditLog.countDocuments(filter);
+    const result = await AuditLog.getPaginated(page, limit, filter);
+    const logs = result.logs;
+    const total = result.total;
 
     res.json({
       success: true,

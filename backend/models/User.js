@@ -1,58 +1,113 @@
-import mongoose from 'mongoose';
+import { supabase } from '../lib/supabase.js';
 import bcrypt from 'bcryptjs';
 
-const userSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true,
-    trim: true
-  },
-  email: {
-    type: String,
-    required: true,
-    unique: true,
-    lowercase: true,
-    trim: true
-  },
-  password: {
-    type: String,
-    required: true,
-    minlength: 6
-  },
-  role: {
-    type: String,
-    enum: ['admin', 'instructor', 'student'],
-    default: 'student'
-  },
-  isActive: {
-    type: Boolean,
-    default: true
-  },
-  profile: {
-    bio: String,
-    avatar: String,
-    specialization: String
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now
+export class User {
+  static async create(userData) {
+    // Hash password if provided and not already hashed
+    let hashedPassword = userData.password;
+    if (userData.password && !userData.password.startsWith('$2a$') && !userData.password.startsWith('$2b$') && !userData.password.startsWith('$2y$')) {
+      hashedPassword = await bcrypt.hash(userData.password, 12);
+    }
+
+    const { data, error } = await supabase
+      .from('users')
+      .insert([{
+        name: userData.name,
+        email: userData.email,
+        password: hashedPassword,
+        role: userData.role || 'student',
+        google_id: userData.googleId,
+        avatar_url: userData.avatarUrl,
+        specialization: userData.specialization
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
   }
-});
 
-// Hash password before saving
-userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
-  this.password = await bcrypt.hash(this.password, 12);
-  next();
-});
+  static async findByEmail(email) {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .single();
 
-// Compare password method
-userSchema.methods.comparePassword = async function(candidatePassword) {
-  return await bcrypt.compare(candidatePassword, this.password);
-};
+    if (error && error.code !== 'PGRST116') throw error;
+    return data;
+  }
 
-export default mongoose.model('User', userSchema);
+  static async findById(id) {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  static async findByGoogleId(googleId) {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('google_id', googleId)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+    return data;
+  }
+
+  static async update(id, updates) {
+    // Hash password if it's being updated
+    if (updates.password) {
+      updates.password = await bcrypt.hash(updates.password, 12);
+    }
+
+    const { data, error } = await supabase
+      .from('users')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  static async findAll() {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  }
+
+  static async findByRole(role) {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('role', role)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  }
+
+  static async verifyPassword(plainPassword, hashedPassword) {
+    return await bcrypt.compare(plainPassword, hashedPassword);
+  }
+
+  static async count() {
+    const { count, error } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true });
+
+    if (error) throw error;
+    return count;
+  }
+}

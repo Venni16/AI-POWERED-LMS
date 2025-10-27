@@ -5,10 +5,10 @@ import { fileURLToPath } from 'url';
 import axios from 'axios';
 import fs from 'fs/promises';
 import { authenticate, authorize, createAuditLog } from '../middleware/auth.js';
-import Course from '../models/Course.js';
-import Video from '../models/Video.js';
-import Material from '../models/Material.js';
-import User from '../models/User.js';
+import { Course } from '../models/Course.js';
+import { Video } from '../models/Video.js';
+import { Material } from '../models/Material.js';
+import { User } from '../models/User.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -73,12 +73,11 @@ const processVideoInBackground = async (videoId, videoPath) => {
     });
 
     // Update video with AI results
-    video.transcript = response.data.transcript;
-    video.summary = response.data.summary;
-    video.editedSummary = response.data.summary;
-    video.processingTime = response.data.processing_time;
-    video.status = 'completed';
-    await video.save();
+    await Video.updateStatus(videoId, 'completed', {
+      transcript: response.data.transcript,
+      summary: response.data.summary,
+      processing_time: response.data.processing_time
+    });
 
     console.log(`Video ${videoId} processed successfully`);
 
@@ -89,11 +88,7 @@ const processVideoInBackground = async (videoId, videoPath) => {
     console.error(`Error processing video ${videoId}:`, error);
     
     // Update video status to error
-    const video = await Video.findById(videoId);
-    if (video) {
-      video.status = 'error';
-      await video.save();
-    }
+    await Video.updateStatus(videoId, 'error');
   }
 };
 
@@ -104,12 +99,24 @@ router.use(authorize('instructor'));
 // Get instructor courses
 router.get('/courses', async (req, res) => {
   try {
-    const courses = await Course.find({ instructor: req.user._id })
-      .populate('videos')
-      .populate('materials')
-      .sort({ createdAt: -1 });
+    const courses = await Course.findByInstructor(req.user.id);
 
-    res.json({ success: true, courses });
+    // Transform courses to include _id for frontend compatibility and correct isPublished field
+    const transformedCourses = courses.map(course => ({
+      ...course,
+      _id: course.id,
+      isPublished: course.is_published,
+      thumbnailUrl: course.thumbnail_url,
+      enrollmentCount: course.enrollment_count,
+      createdAt: course.created_at,
+      updatedAt: course.updated_at,
+      videos: course.videos?.map(video => ({
+        ...video,
+        editedSummary: video.edited_summary
+      })) || []
+    }));
+
+    res.json({ success: true, courses: transformedCourses });
 
   } catch (error) {
     console.error('Get courses error:', error);
@@ -121,55 +128,49 @@ router.get('/courses', async (req, res) => {
 router.post('/courses', async (req, res) => {
     try {
       const { title, description, category, price, thumbnail } = req.body;
-  
+
       // Validate required fields
       if (!title || !description || !category) {
-        return res.status(400).json({ 
-          error: 'Title, description, and category are required' 
+        return res.status(400).json({
+          error: 'Title, description, and category are required'
         });
       }
-  
-      const course = new Course({
+
+      const courseData = {
         title: title.trim(),
         description: description.trim(),
         category: category.trim(),
         price: price ? parseFloat(price) : 0,
         thumbnail: thumbnail || '',
-        instructor: req.user._id
-      });
-  
-      await course.save();
-      
-      await createAuditLog(req, 'CREATE_COURSE', 'COURSE', { 
-        courseId: course._id,
+        instructor: req.user.id
+      };
+
+      const course = await Course.create(courseData);
+
+      await createAuditLog(req, 'CREATE_COURSE', 'COURSE', {
+        courseId: course.id,
         title: course.title
       });
-  
-      res.status(201).json({ 
-        success: true, 
+
+      res.status(201).json({
+        success: true,
         course: {
-          _id: course._id,
+          id: course.id,
           title: course.title,
           description: course.description,
           category: course.category,
           price: course.price,
-          thumbnail: course.thumbnail,
-          instructor: req.user._id,
-          isPublished: course.isPublished,
-          enrollmentCount: course.enrollmentCount,
-          createdAt: course.createdAt,
-          updatedAt: course.updatedAt
+          thumbnail: course.thumbnail_url,
+          instructor: req.user.id,
+          isPublished: false, // New courses start as drafts
+          enrollmentCount: course.enrollment_count,
+          createdAt: course.created_at,
+          updatedAt: course.updated_at
         }
       });
-  
+
     } catch (error) {
       console.error('Create course error:', error);
-      
-      if (error.name === 'ValidationError') {
-        const errors = Object.values(error.errors).map(err => err.message);
-        return res.status(400).json({ error: errors.join(', ') });
-      }
-      
       res.status(500).json({ error: 'Server error' });
     }
   });
@@ -177,17 +178,15 @@ router.post('/courses', async (req, res) => {
 // Update course
 router.put('/courses/:courseId', async (req, res) => {
   try {
-    const course = await Course.findOneAndUpdate(
-      { _id: req.params.courseId, instructor: req.user._id },
-      req.body,
-      { new: true }
-    );
-
-    if (!course) {
+    // Check if course exists and belongs to instructor
+    const existingCourse = await Course.findById(req.params.courseId);
+    if (!existingCourse || existingCourse.instructor_id !== req.user.id) {
       return res.status(404).json({ error: 'Course not found' });
     }
 
-    await createAuditLog(req, 'UPDATE_COURSE', 'COURSE', { courseId: course._id });
+    const course = await Course.update(req.params.courseId, req.body);
+
+    await createAuditLog(req, 'UPDATE_COURSE', 'COURSE', { courseId: course.id });
 
     res.json({ success: true, course });
 
@@ -200,12 +199,9 @@ router.put('/courses/:courseId', async (req, res) => {
 // Upload video to course
 router.post('/courses/:courseId/videos', videoUpload.single('video'), async (req, res) => {
   try {
-    const course = await Course.findOne({ 
-      _id: req.params.courseId, 
-      instructor: req.user._id 
-    });
+    const course = await Course.findById(req.params.courseId);
 
-    if (!course) {
+    if (!course || course.instructor_id !== req.user.id) {
       return res.status(404).json({ error: 'Course not found' });
     }
 
@@ -213,33 +209,30 @@ router.post('/courses/:courseId/videos', videoUpload.single('video'), async (req
       return res.status(400).json({ error: 'No video file uploaded' });
     }
 
-    const video = new Video({
+    const videoData = {
       title: req.body.title || req.file.originalname,
       filename: req.file.filename,
       originalName: req.file.originalname,
       fileSize: req.file.size,
       fileType: req.file.mimetype,
-      course: course._id,
-      status: 'processing'
-    });
+      courseId: course.id,
+      status: 'processing',
+      storagePath: req.file.path
+    };
 
-    await video.save();
+    const video = await Video.create(videoData);
 
-    // Add video to course
-    course.videos.push(video._id);
-    await course.save();
-
-    await createAuditLog(req, 'UPLOAD_VIDEO', 'VIDEO', { 
-      courseId: course._id, videoId: video._id 
+    await createAuditLog(req, 'UPLOAD_VIDEO', 'VIDEO', {
+      courseId: course.id, videoId: video.id
     });
 
     // Process video with AI in background
-    processVideoInBackground(video._id, req.file.path);
+    processVideoInBackground(video.id, req.file.path);
 
-    res.status(201).json({ 
-      success: true, 
+    res.status(201).json({
+      success: true,
       video: video,
-      message: 'Video uploaded. AI processing started...' 
+      message: 'Video uploaded. AI processing started...'
     });
 
   } catch (error) {
@@ -251,12 +244,9 @@ router.post('/courses/:courseId/videos', videoUpload.single('video'), async (req
 // Upload material to course
 router.post('/courses/:courseId/materials', materialUpload.single('material'), async (req, res) => {
   try {
-    const course = await Course.findOne({ 
-      _id: req.params.courseId, 
-      instructor: req.user._id 
-    });
+    const course = await Course.findById(req.params.courseId);
 
-    if (!course) {
+    if (!course || course.instructor_id !== req.user.id) {
       return res.status(404).json({ error: 'Course not found' });
     }
 
@@ -264,22 +254,20 @@ router.post('/courses/:courseId/materials', materialUpload.single('material'), a
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const material = new Material({
+    const materialData = {
       title: req.body.title || req.file.originalname,
       filename: req.file.filename,
       originalName: req.file.originalname,
       fileSize: req.file.size,
       fileType: req.file.mimetype,
-      course: course._id
-    });
+      courseId: course.id,
+      storagePath: req.file.path
+    };
 
-    await material.save();
+    const material = await Material.create(materialData);
 
-    course.materials.push(material._id);
-    await course.save();
-
-    await createAuditLog(req, 'UPLOAD_MATERIAL', 'MATERIAL', { 
-      courseId: course._id, materialId: material._id 
+    await createAuditLog(req, 'UPLOAD_MATERIAL', 'MATERIAL', {
+      courseId: course.id, materialId: material.id
     });
 
     res.status(201).json({ success: true, material });
@@ -293,16 +281,25 @@ router.post('/courses/:courseId/materials', materialUpload.single('material'), a
 // Get enrolled students for a course
 router.get('/courses/:courseId/students', async (req, res) => {
   try {
-    const course = await Course.findOne({ 
-      _id: req.params.courseId, 
-      instructor: req.user._id 
-    }).populate('enrolledStudents.student', 'name email');
+    const course = await Course.findById(req.params.courseId);
 
-    if (!course) {
+    if (!course || course.instructor_id !== req.user.id) {
       return res.status(404).json({ error: 'Course not found' });
     }
 
-    res.json({ success: true, students: course.enrolledStudents });
+    // Get enrollments for this course
+    const { supabase } = await import('../lib/supabase.js');
+    const { data: enrollments, error } = await supabase
+      .from('enrollments')
+      .select(`
+        enrolled_at,
+        student:users(id, name, email, avatar_url)
+      `)
+      .eq('course_id', req.params.courseId);
+
+    if (error) throw error;
+
+    res.json({ success: true, students: enrollments });
 
   } catch (error) {
     console.error('Get students error:', error);
@@ -313,48 +310,50 @@ router.get('/courses/:courseId/students', async (req, res) => {
 // Delete video from course
 router.delete('/courses/:courseId/videos/:videoId', async (req, res) => {
     try {
-      const course = await Course.findOne({ 
-        _id: req.params.courseId, 
-        instructor: req.user._id 
-      });
-  
-      if (!course) {
+      const course = await Course.findById(req.params.courseId);
+
+      if (!course || course.instructor_id !== req.user.id) {
         return res.status(404).json({ error: 'Course not found' });
       }
-  
-      const video = await Video.findOne({
-        _id: req.params.videoId,
-        course: req.params.courseId
-      });
-  
-      if (!video) {
+
+      const video = await Video.findById(req.params.videoId);
+
+      if (!video || video.course_id !== req.params.courseId) {
         return res.status(404).json({ error: 'Video not found' });
       }
-  
-      // Remove video from course
-      course.videos = course.videos.filter(vid => vid.toString() !== req.params.videoId);
-      await course.save();
-  
-      // Delete video file from uploads
+
+      // Delete video file from Supabase storage
+      if (video.storage_path) {
+        try {
+          const { FileUpload } = await import('../utils/fileUpload.js');
+          await FileUpload.deleteFile(video.storage_path);
+          console.log('Video deleted from Supabase storage:', video.storage_path);
+        } catch (storageError) {
+          console.error('Error deleting video from Supabase:', storageError);
+          // Continue with deletion even if storage deletion fails
+        }
+      }
+
+      // Delete video file from local uploads (if exists)
       const videoPath = path.join('uploads/videos', video.filename);
       try {
         await fs.unlink(videoPath);
       } catch (fileError) {
-        console.error('Error deleting video file:', fileError);
+        console.error('Error deleting local video file:', fileError);
       }
-  
+
       // Delete video record from database
-      await Video.findByIdAndDelete(req.params.videoId);
-  
-      await createAuditLog(req, 'DELETE_VIDEO', 'VIDEO', { 
-        courseId: course._id, videoId: video._id 
+      await Video.delete(req.params.videoId);
+
+      await createAuditLog(req, 'DELETE_VIDEO', 'VIDEO', {
+        courseId: course.id, videoId: video.id
       });
-  
-      res.json({ 
-        success: true, 
-        message: 'Video deleted successfully' 
+
+      res.json({
+        success: true,
+        message: 'Video deleted successfully'
       });
-  
+
     } catch (error) {
       console.error('Delete video error:', error);
       res.status(500).json({ error: 'Server error' });
@@ -364,42 +363,36 @@ router.delete('/courses/:courseId/videos/:videoId', async (req, res) => {
 // Update video summary
 router.put('/courses/:courseId/videos/:videoId/summary', async (req, res) => {
     try {
-      const course = await Course.findOne({ 
-        _id: req.params.courseId, 
-        instructor: req.user._id 
-      });
-  
-      if (!course) {
+      const course = await Course.findById(req.params.courseId);
+
+      if (!course || course.instructor_id !== req.user.id) {
         return res.status(404).json({ error: 'Course not found' });
       }
-  
-      const video = await Video.findOne({
-        _id: req.params.videoId,
-        course: req.params.courseId
-      });
-  
-      if (!video) {
+
+      const video = await Video.findById(req.params.videoId);
+
+      if (!video || video.course_id !== req.params.courseId) {
         return res.status(404).json({ error: 'Video not found' });
       }
-  
+
       const { summary } = req.body;
-      
+
       if (!summary) {
         return res.status(400).json({ error: 'Summary is required' });
       }
-  
-      video.editedSummary = summary;
-      await video.save();
-  
-      await createAuditLog(req, 'UPDATE_SUMMARY', 'VIDEO', { 
-        courseId: course._id, videoId: video._id 
+
+      await Video.updateSummary(req.params.videoId, summary);
+
+      await createAuditLog(req, 'UPDATE_SUMMARY', 'VIDEO', {
+        courseId: course.id, videoId: video.id
       });
-  
-      res.json({ 
-        success: true, 
-        video: video 
+
+      const updatedVideo = await Video.findById(req.params.videoId);
+      res.json({
+        success: true,
+        video: updatedVideo
       });
-  
+
     } catch (error) {
       console.error('Update summary error:', error);
       res.status(500).json({ error: 'Server error' });
