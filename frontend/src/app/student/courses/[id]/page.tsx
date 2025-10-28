@@ -1,6 +1,6 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import ProtectedRoute from '../../../../../components/common/ProtectedRoute';
 import VideoPlayer from '../../../../../components/common/VideoPlayer';
@@ -9,6 +9,7 @@ import { studentAPI, videoAPI } from '../../../../../lib/api';
 import { Course, Video, User } from '../../../../../types';
 
 export default function CourseDetailPage() {
+  const router = useRouter();
   const params = useParams();
   const courseId = Array.isArray(params.id) ? params.id[0] : params.id;
 
@@ -128,6 +129,17 @@ export default function CourseDetailPage() {
           {/* Course Header */}
           <div className="px-4 py-6 sm:px-0">
             <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center justify-between mb-4">
+                <button
+                  onClick={() => router.back()}
+                  className="flex items-center text-blue-600 hover:text-blue-500 transition-colors"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Back to Courses
+                </button>
+              </div>
               <div className="flex flex-col md:flex-row md:items-start space-y-4 md:space-y-0 md:space-x-6">
                 {course.thumbnail && (
                   <img
@@ -326,7 +338,7 @@ export default function CourseDetailPage() {
                   <div className="max-h-64 overflow-y-auto">
                     {course.materials.map((material) => (
                       <a
-                        key={material._id}
+                        key={material.id}
                         href={`http://localhost:5000/uploads/materials/${material.filename}`}
                         target="_blank"
                         rel="noopener noreferrer"

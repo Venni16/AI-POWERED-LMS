@@ -3,6 +3,7 @@
 import ProtectedRoute from '../../../components/common/ProtectedRoute';
 import CourseManager from '../../../components/Instructor/CourseManager';
 import VideoUploader from '../../../components/Instructor/VideoUploader';
+import MaterialUploader from '../../../components/Instructor/MaterialUploader';
 import StudentEnrollments from '../../../components/Instructor/StudentEnrollments';
 import ChatManager from '../../../components/Instructor/ChatManager';
 import { useState } from 'react';
@@ -134,7 +135,12 @@ export default function InstructorDashboard() {
           {/* Tab Content */}
           <div className="px-4 sm:px-0 mt-6">
             {activeTab === 'courses' && <CourseManager />}
-            {activeTab === 'upload' && <VideoUploader />}
+            {activeTab === 'upload' && (
+              <div className="space-y-6">
+                <VideoUploader />
+                <MaterialUploader />
+              </div>
+            )}
             {activeTab === 'students' && <StudentEnrollments />}
             {activeTab === 'chat' && <ChatManager />}
           </div>

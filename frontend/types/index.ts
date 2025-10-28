@@ -49,7 +49,8 @@ export interface Video {
 }
 
 export interface Material {
-  _id: string;
+  id: string;
+  _id?: string;
   title: string;
   filename: string;
   originalName: string;

@@ -126,6 +126,28 @@ export default function InstructorCourseDetailPage() {
     setSummaryText('');
   };
 
+  const handleDeleteVideo = async (videoId: string) => {
+    if (!confirm('Are you sure you want to delete this video? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await instructorAPI.deleteVideo(courseId as string, videoId);
+      // Refresh course details after deletion
+      await fetchCourseDetails();
+      // If the deleted video was active, clear it
+      if (activeVideo?.id === videoId) {
+        setActiveVideo(null);
+        setVideoError(null);
+        setVideoUrl(null);
+      }
+      alert('Video deleted successfully!');
+    } catch (error: any) {
+      console.error('Failed to delete video:', error);
+      alert(error.response?.data?.error || 'Failed to delete video');
+    }
+  };
+
   if (loading) {
     return (
       <ProtectedRoute allowedRoles={['instructor']}>
@@ -381,14 +403,14 @@ export default function InstructorCourseDetailPage() {
                 <div className="max-h-96 overflow-y-auto">
                   {course.videos?.map((video, index) => (
                     <div key={video.id} className="border-b border-gray-200 last:border-b-0">
-                      <button
+                      <div
                         onClick={() => {
                           setActiveVideo(video);
                           setExpandedVideo(null);
                           setVideoError(null);
                           setVideoUrl(null); // Reset video URL when switching videos
                         }}
-                        className={`w-full text-left p-4 hover:bg-gray-50 transition-colors ${
+                        className={`w-full text-left p-4 hover:bg-gray-50 transition-colors cursor-pointer ${
                           activeVideo?.id === video.id ? 'bg-blue-50 border-l-4 border-l-blue-600' : ''
                         }`}
                       >
@@ -397,9 +419,23 @@ export default function InstructorCourseDetailPage() {
                             {index + 1}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h4 className="text-sm font-medium text-gray-900 truncate">
-                              {video.title}
-                            </h4>
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-sm font-medium text-gray-900 truncate">
+                                {video.title}
+                              </h4>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteVideo(video.id);
+                                }}
+                                className="ml-2 text-red-500 hover:text-red-700 transition-colors"
+                                title="Delete video"
+                              >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
                             <div className="flex items-center space-x-2 text-xs text-gray-500 mt-1">
                               <span>{video.status}</span>
                               <span>•</span>
@@ -407,7 +443,7 @@ export default function InstructorCourseDetailPage() {
                             </div>
                           </div>
                         </div>
-                      </button>
+                      </div>
 
                       {/* Expandable Summary Preview */}
                       {video.status === 'completed' && (
@@ -451,7 +487,7 @@ export default function InstructorCourseDetailPage() {
                   <div className="max-h-64 overflow-y-auto">
                     {course.materials.map((material) => (
                       <a
-                        key={material._id}
+                        key={material.id}
                         href={`http://localhost:5000/uploads/materials/${material.filename}`}
                         target="_blank"
                         rel="noopener noreferrer"

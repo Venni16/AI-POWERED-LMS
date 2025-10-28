@@ -65,14 +65,21 @@ export const instructorAPI = {
       },
       ...config
     }),
-  uploadMaterial: (courseId: string, formData: FormData) =>
-    api.post(`/instructor/courses/${courseId}/materials`, formData),
+  uploadMaterial: (courseId: string, formData: FormData, config?: any) =>
+    api.post(`/instructor/courses/${courseId}/materials`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      ...config
+    }),
   getEnrolledStudents: (courseId: string) =>
     api.get(`/instructor/courses/${courseId}/students`),
   deleteVideo: (courseId: string, videoId: string) =>
     api.delete(`/instructor/courses/${courseId}/videos/${videoId}`),
   updateVideoSummary: (courseId: string, videoId: string, summary: string) =>
     api.put(`/instructor/courses/${courseId}/videos/${videoId}/summary`, { summary }),
+  deleteCourse: (courseId: string) =>
+    api.delete(`/instructor/courses/${courseId}`),
 };
 
 export const studentAPI = {

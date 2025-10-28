@@ -25,12 +25,42 @@ export default function CourseManager() {
     fetchCourses();
   }, []);
 
+  // Add polling for video processing updates
+  useEffect(() => {
+    const hasProcessingVideos = courses.some(course =>
+      course.videos?.some(video => video.status === 'processing')
+    );
+
+    if (hasProcessingVideos) {
+      const interval = setInterval(() => {
+        fetchCourses();
+      }, 3000); // Poll every 3 seconds for faster updates
+
+      return () => clearInterval(interval);
+    }
+  }, [courses]);
+
+  // Also poll continuously if we're on the instructor page (more aggressive polling)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchCourses();
+    }, 10000); // Poll every 10 seconds as backup
+
+    return () => clearInterval(interval);
+  }, []);
+
   const fetchCourses = async () => {
     try {
       const response = await instructorAPI.getCourses();
       setCourses(response.data.courses);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching courses:', error);
+      if (error.response?.status === 403) {
+        alert('Access denied. You do not have instructor permissions.');
+        // Redirect to student dashboard or home
+        router.push('/');
+        return;
+      }
     } finally {
       setLoading(false);
     }
@@ -93,6 +123,20 @@ const handleCreateCourse = async (e: React.FormEvent) => {
       alert('Video deleted successfully!');
     } catch (error: any) {
       alert(error.response?.data?.error || 'Failed to delete video');
+    }
+  };
+
+  const handleDeleteCourse = async (courseId: string) => {
+    if (!confirm('Are you sure you want to delete this course? This will permanently delete all videos, materials, and course data. This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await instructorAPI.deleteCourse(courseId);
+      fetchCourses();
+      alert('Course deleted successfully!');
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Failed to delete course');
     }
   };
 
@@ -294,22 +338,30 @@ const handleCreateCourse = async (e: React.FormEvent) => {
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex space-x-2">
+                  <div className="flex flex-col space-y-2">
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => router.push(`/instructor/courses/${course.id}`)}
+                        className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+                      >
+                        View Details
+                      </button>
+                      <button
+                        onClick={() => toggleCoursePublish(course.id, course.isPublished)}
+                        className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                          course.isPublished
+                            ? 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                            : 'bg-green-100 text-green-800 hover:bg-green-200'
+                        }`}
+                      >
+                        {course.isPublished ? 'Unpublish' : 'Publish'}
+                      </button>
+                    </div>
                     <button
-                      onClick={() => router.push(`/instructor/courses/${course.id}`)}
-                      className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+                      onClick={() => handleDeleteCourse(course.id)}
+                      className="w-full bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-red-700 transition-colors"
                     >
-                      View Details
-                    </button>
-                    <button
-                      onClick={() => toggleCoursePublish(course.id, course.isPublished)}
-                      className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                        course.isPublished
-                          ? 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                          : 'bg-green-100 text-green-800 hover:bg-green-200'
-                      }`}
-                    >
-                      {course.isPublished ? 'Unpublish' : 'Publish'}
+                      Delete Course
                     </button>
                   </div>
                 </div>

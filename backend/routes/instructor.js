@@ -436,7 +436,96 @@ router.put('/courses/:courseId/videos/:videoId/summary', async (req, res) => {
       res.status(500).json({ error: 'Server error' });
     }
   });
-  
-  
+
+// Delete course
+router.delete('/courses/:courseId', async (req, res) => {
+    try {
+      const course = await Course.findById(req.params.courseId);
+
+      if (!course || course.instructor_id !== req.user.id) {
+        return res.status(404).json({ error: 'Course not found' });
+      }
+
+      // Check if course has enrolled students
+      if (course.enrollments && course.enrollments.length > 0) {
+        return res.status(400).json({
+          error: 'Cannot delete course with enrolled students. Please unenroll all students first.'
+        });
+      }
+
+      // Delete all videos and their files
+      if (course.videos && course.videos.length > 0) {
+        for (const video of course.videos) {
+          try {
+            // Delete video file from Supabase storage
+            if (video.storage_path) {
+              const { FileUpload } = await import('../utils/fileUpload.js');
+              await FileUpload.deleteFile(video.storage_path);
+            }
+
+            // Delete video file from local uploads
+            const videoPath = path.join('uploads/videos', video.filename);
+            try {
+              await fs.unlink(videoPath);
+            } catch (fileError) {
+              console.error('Error deleting local video file:', fileError);
+            }
+
+            // Delete video record
+            await Video.delete(video.id);
+          } catch (videoError) {
+            console.error(`Error deleting video ${video.id}:`, videoError);
+            // Continue with other videos
+          }
+        }
+      }
+
+      // Delete all materials and their files
+      if (course.materials && course.materials.length > 0) {
+        for (const material of course.materials) {
+          try {
+            // Delete material file from Supabase storage
+            if (material.storage_path) {
+              const { FileUpload } = await import('../utils/fileUpload.js');
+              await FileUpload.deleteFile(material.storage_path);
+            }
+
+            // Delete material file from local uploads
+            const materialPath = path.join('uploads/materials', material.filename);
+            try {
+              await fs.unlink(materialPath);
+            } catch (fileError) {
+              console.error('Error deleting local material file:', fileError);
+            }
+
+            // Delete material record
+            await Material.delete(material.id);
+          } catch (materialError) {
+            console.error(`Error deleting material ${material.id}:`, materialError);
+            // Continue with other materials
+          }
+        }
+      }
+
+      // Delete course record
+      await Course.delete(req.params.courseId);
+
+      await createAuditLog(req, 'DELETE_COURSE', 'COURSE', {
+        courseId: course.id,
+        title: course.title
+      });
+
+      res.json({
+        success: true,
+        message: 'Course deleted successfully'
+      });
+
+    } catch (error) {
+      console.error('Delete course error:', error);
+      res.status(500).json({ error: 'Server error' });
+    }
+  });
+
+
 // Use default export
 export default router;
