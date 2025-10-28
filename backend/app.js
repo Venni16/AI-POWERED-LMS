@@ -4,6 +4,8 @@ import mongoose from 'mongoose';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs/promises';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 
 // Import routes with default imports
 import authRoutes from './routes/auth.js';
@@ -13,11 +15,19 @@ import studentRoutes from './routes/student.js';
 import coursesRoutes from './routes/courses.js';
 import videoRoutes from './routes/video.js';
 import debugRoutes from './routes/debug.js';
+import chatRoutes from './routes/chat.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+const server = createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: ['http://localhost:3000', 'http://192.168.40.1:3000'],
+    credentials: true
+  }
+});
 const PORT = process.env.PORT || 5000;
 
 // MongoDB connection
@@ -43,6 +53,9 @@ const ensureUploadDirs = async () => {
   }
 };
 
+// Make io accessible in routes
+app.set('io', io);
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
@@ -51,6 +64,7 @@ app.use('/api/student', studentRoutes);
 app.use('/api/courses', coursesRoutes);
 app.use('/api/video', videoRoutes);
 app.use('/api/debug', debugRoutes);
+app.use('/api/chat', chatRoutes);
 
 // Health check route
 
@@ -70,6 +84,27 @@ app.get('/', (req, res) => {
       videoSummarize: '/api/video/summarize',
       getVideos: '/api/video/videos'
     }
+  });
+});
+
+// Socket.IO connection handling
+io.on('connection', (socket) => {
+  console.log('User connected:', socket.id);
+
+  // Join course room
+  socket.on('join_course', (courseId) => {
+    socket.join(`course_${courseId}`);
+    console.log(`User ${socket.id} joined course ${courseId}`);
+  });
+
+  // Leave course room
+  socket.on('leave_course', (courseId) => {
+    socket.leave(`course_${courseId}`);
+    console.log(`User ${socket.id} left course ${courseId}`);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('User disconnected:', socket.id);
   });
 });
 
@@ -102,7 +137,7 @@ const startServer = async () => {
     // Initialize default admin
     await initializeAdmin();
     
-    app.listen(PORT, () => {
+    server.listen(PORT, () => {
       console.log(`AI LMS Server running on port ${PORT}`);
       console.log(`Health check: http://localhost:${PORT}/health`);
     });

@@ -53,6 +53,8 @@ export const adminAPI = {
 
 export const instructorAPI = {
   getCourses: () => api.get('/instructor/courses'),
+  getCourseDetails: (courseId: string) =>
+    api.get(`/instructor/courses/${courseId}`),
   createCourse: (data: any) => api.post('/instructor/courses', data),
   updateCourse: (courseId: string, data: any) =>
     api.put(`/instructor/courses/${courseId}`, data),
@@ -90,6 +92,12 @@ export const coursesAPI = {
   getPublicCourses: () => api.get('/courses/public'),
   getPublicCourseDetails: (courseId: string) =>
     api.get(`/courses/public/${courseId}`),
+};
+
+export const chatAPI = {
+  getMessages: (courseId: string) => api.get(`/chat/courses/${courseId}/messages`),
+  sendMessage: (courseId: string, message: string) =>
+    api.post(`/chat/courses/${courseId}/messages`, { message }),
 };
 
 export default api;

@@ -5,10 +5,10 @@ import { useState, useEffect } from 'react';
 import ProtectedRoute from '../../../../../components/common/ProtectedRoute';
 import VideoPlayer from '../../../../../components/common/VideoPlayer';
 import Chat from '../../../../../components/common/Chat';
-import { studentAPI, videoAPI } from '../../../../../lib/api';
+import { instructorAPI, videoAPI } from '../../../../../lib/api';
 import { Course, Video, User } from '../../../../../types';
 
-export default function CourseDetailPage() {
+export default function InstructorCourseDetailPage() {
   const params = useParams();
   const courseId = Array.isArray(params.id) ? params.id[0] : params.id;
 
@@ -42,7 +42,7 @@ export default function CourseDetailPage() {
 
   const fetchCourseDetails = async () => {
     try {
-      const response = await studentAPI.getCourseDetails(courseId as string);
+      const response = await instructorAPI.getCourseDetails(courseId as string);
       setCourse(response.data.course);
       if (response.data.course.videos?.length > 0) {
         setActiveVideo(response.data.course.videos[0]);
@@ -50,7 +50,7 @@ export default function CourseDetailPage() {
     } catch (error: any) {
       console.error('Error fetching course details:', error);
       if (error.response?.status === 400) {
-        console.error('Bad request - invalid course ID or enrollment');
+        console.error('Bad request - invalid course ID or ownership');
       }
     } finally {
       setLoading(false);
@@ -100,7 +100,7 @@ export default function CourseDetailPage() {
 
   if (loading) {
     return (
-      <ProtectedRoute allowedRoles={['student']}>
+      <ProtectedRoute allowedRoles={['instructor']}>
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
           <div className="loading-spinner"></div>
         </div>
@@ -110,7 +110,7 @@ export default function CourseDetailPage() {
 
   if (!course) {
     return (
-      <ProtectedRoute allowedRoles={['student']}>
+      <ProtectedRoute allowedRoles={['instructor']}>
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
           <div className="text-center">
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Course Not Found</h1>
@@ -122,7 +122,7 @@ export default function CourseDetailPage() {
   }
 
   return (
-    <ProtectedRoute allowedRoles={['student']}>
+    <ProtectedRoute allowedRoles={['instructor']}>
       <div className="min-h-screen bg-gray-50">
         <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
           {/* Course Header */}
@@ -178,10 +178,10 @@ export default function CourseDetailPage() {
                             </div>
                           </div>
                         )}
-                        
+
                         <VideoPlayer videoId={activeVideo.id} />
                       </div>
-                      
+
                       {/* Video Info */}
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
                         <div>
@@ -229,7 +229,7 @@ export default function CourseDetailPage() {
                         {activeVideo.editedSummary || activeVideo.summary}
                       </p>
                     </div>
-                    
+
                     {/* Transcript Section */}
                     {activeVideo.transcript && (
                       <div className="mt-6">
@@ -283,7 +283,7 @@ export default function CourseDetailPage() {
                           </div>
                         </div>
                       </button>
-                      
+
                       {/* Expandable Summary Preview */}
                       {video.status === 'completed' && (
                         <div className="px-4 pb-4 ml-11">
@@ -308,7 +308,7 @@ export default function CourseDetailPage() {
                       )}
                     </div>
                   ))}
-                  
+
                   {!course.videos?.length && (
                     <div className="p-4 text-center text-gray-500 text-sm">
                       No videos available yet

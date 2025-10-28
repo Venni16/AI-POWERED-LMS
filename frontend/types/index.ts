@@ -94,3 +94,11 @@ export interface DashboardStats {
   totalStudents: number;
   totalCourses: number;
 }
+
+export interface ChatMessage {
+  id: string;
+  course_id: string;
+  sender: User;
+  message: string;
+  created_at: string;
+}

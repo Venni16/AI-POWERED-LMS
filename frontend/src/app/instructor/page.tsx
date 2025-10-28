@@ -4,6 +4,7 @@ import ProtectedRoute from '../../../components/common/ProtectedRoute';
 import CourseManager from '../../../components/Instructor/CourseManager';
 import VideoUploader from '../../../components/Instructor/VideoUploader';
 import StudentEnrollments from '../../../components/Instructor/StudentEnrollments';
+import ChatManager from '../../../components/Instructor/ChatManager';
 import { useState } from 'react';
 
 export default function InstructorDashboard() {
@@ -116,6 +117,16 @@ export default function InstructorDashboard() {
                 >
                   Student Management
                 </button>
+                <button
+                  onClick={() => setActiveTab('chat')}
+                  className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'chat'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Chat
+                </button>
               </nav>
             </div>
           </div>
@@ -125,6 +136,7 @@ export default function InstructorDashboard() {
             {activeTab === 'courses' && <CourseManager />}
             {activeTab === 'upload' && <VideoUploader />}
             {activeTab === 'students' && <StudentEnrollments />}
+            {activeTab === 'chat' && <ChatManager />}
           </div>
         </div>
       </div>
