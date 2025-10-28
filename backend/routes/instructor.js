@@ -107,7 +107,7 @@ router.get('/courses', async (req, res) => {
       _id: course.id,
       isPublished: course.is_published,
       thumbnailUrl: course.thumbnail_url,
-      enrollmentCount: course.enrollment_count,
+      enrollmentCount: course.enrollments?.length || 0,
       createdAt: course.created_at,
       updatedAt: course.updated_at,
       videos: course.videos?.map(video => ({
@@ -174,6 +174,44 @@ router.post('/courses', async (req, res) => {
       res.status(500).json({ error: 'Server error' });
     }
   });
+
+// Get course details
+router.get('/courses/:courseId', async (req, res) => {
+  try {
+    const course = await Course.findById(req.params.courseId);
+
+    if (!course || course.instructor_id !== req.user.id) {
+      return res.status(404).json({ error: 'Course not found' });
+    }
+
+    // Transform course to match frontend expectations
+    const transformedCourse = {
+      ...course,
+      id: course.id,
+      title: course.title,
+      description: course.description,
+      category: course.category,
+      price: course.price,
+      thumbnail: course.thumbnail_url,
+      isPublished: course.is_published,
+      enrollmentCount: course.enrollment_count,
+      createdAt: course.created_at,
+      updatedAt: course.updated_at,
+      instructor: course.instructor,
+      videos: course.videos?.map(video => ({
+        ...video,
+        editedSummary: video.edited_summary
+      })) || [],
+      materials: course.materials || []
+    };
+
+    res.json({ success: true, course: transformedCourse });
+
+  } catch (error) {
+    console.error('Get course details error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 // Update course
 router.put('/courses/:courseId', async (req, res) => {

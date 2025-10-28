@@ -114,7 +114,7 @@ export default function ChatManager() {
                       </div>
                     </div>
                     {selectedCourse?.id === course.id && (
-                      <div className="ml-2 flex-shrink-0">
+                      <div className="ml-2 shrink-0">
                         <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                       </div>
                     )}

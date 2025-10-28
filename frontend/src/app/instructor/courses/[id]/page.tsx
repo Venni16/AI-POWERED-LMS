@@ -1,6 +1,6 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import ProtectedRoute from '../../../../../components/common/ProtectedRoute';
 import VideoPlayer from '../../../../../components/common/VideoPlayer';
@@ -9,6 +9,7 @@ import { instructorAPI, videoAPI } from '../../../../../lib/api';
 import { Course, Video, User } from '../../../../../types';
 
 export default function InstructorCourseDetailPage() {
+  const router = useRouter();
   const params = useParams();
   const courseId = Array.isArray(params.id) ? params.id[0] : params.id;
 
@@ -19,6 +20,8 @@ export default function InstructorCourseDetailPage() {
   const [videoError, setVideoError] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [editingSummary, setEditingSummary] = useState<string | null>(null);
+  const [summaryText, setSummaryText] = useState<string>('');
 
   useEffect(() => {
     if (courseId && typeof courseId === 'string') {
@@ -98,6 +101,31 @@ export default function InstructorCourseDetailPage() {
     }
   };
 
+  const handleEditSummary = (videoId: string) => {
+    const video = course?.videos?.find(v => v.id === videoId);
+    if (video) {
+      setEditingSummary(videoId);
+      setSummaryText(video.editedSummary || video.summary || '');
+    }
+  };
+
+  const handleSaveSummary = async (videoId: string) => {
+    try {
+      await instructorAPI.updateVideoSummary(courseId as string, videoId, summaryText);
+      // Refresh course details to get updated summary
+      await fetchCourseDetails();
+      setEditingSummary(null);
+      setSummaryText('');
+    } catch (error) {
+      console.error('Failed to save summary:', error);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingSummary(null);
+    setSummaryText('');
+  };
+
   if (loading) {
     return (
       <ProtectedRoute allowedRoles={['instructor']}>
@@ -128,25 +156,86 @@ export default function InstructorCourseDetailPage() {
           {/* Course Header */}
           <div className="px-4 py-6 sm:px-0">
             <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex flex-col md:flex-row md:items-start space-y-4 md:space-y-0 md:space-x-6">
-                {course.thumbnail && (
-                  <img
-                    src={course.thumbnail}
-                    alt={course.title}
-                    className="w-full md:w-64 h-48 object-cover rounded-lg"
-                  />
-                )}
-                <div className="flex-1">
-                  <h1 className="text-3xl font-bold text-gray-900 mb-2">{course.title}</h1>
-                  <p className="text-gray-600 mb-4">{course.description}</p>
-                  <div className="flex flex-wrap gap-2 text-sm text-gray-500">
-                    <span>Instructor: {course.instructor.name}</span>
-                    <span>•</span>
-                    <span>Category: {course.category}</span>
-                    <span>•</span>
-                    <span>{course.videos?.length || 0} videos</span>
-                    <span>•</span>
-                    <span>{course.materials?.length || 0} materials</span>
+              <div className="flex flex-col lg:flex-row lg:items-start space-y-6 lg:space-y-0 lg:space-x-8">
+                {/* Course Thumbnail */}
+                <div className="flex-shrink-0">
+                  {course.thumbnail ? (
+                    <img
+                      src={course.thumbnail}
+                      alt={course.title}
+                      className="w-full lg:w-80 h-56 object-cover rounded-lg shadow-md"
+                    />
+                  ) : (
+                    <div className="w-full lg:w-80 h-56 bg-gray-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-20 h-20 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+
+                {/* Course Details */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-4">
+                    <div className="flex-1">
+                      <h1 className="text-3xl font-bold text-gray-900 mb-2">{course.title}</h1>
+                      <p className="text-gray-600 text-lg leading-relaxed mb-4">{course.description}</p>
+                    </div>
+                    {/* Status Badge */}
+                    <div className="flex-shrink-0 mt-2 sm:mt-0 sm:ml-4">
+                      <span className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${
+                        course.isPublished
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {course.isPublished ? 'Published' : 'Draft'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Course Stats */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div className="bg-gray-50 rounded-lg p-4 text-center">
+                      <div className="text-2xl font-bold text-gray-900">{course.enrollmentCount || 0}</div>
+                      <div className="text-sm text-gray-600">Students</div>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4 text-center">
+                      <div className="text-2xl font-bold text-gray-900">{course.videos?.length || 0}</div>
+                      <div className="text-sm text-gray-600">Videos</div>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4 text-center">
+                      <div className="text-2xl font-bold text-gray-900">{course.materials?.length || 0}</div>
+                      <div className="text-sm text-gray-600">Materials</div>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4 text-center">
+                      <div className="text-2xl font-bold text-gray-900">${course.price}</div>
+                      <div className="text-sm text-gray-600">Price</div>
+                    </div>
+                  </div>
+
+                  {/* Additional Info */}
+                  <div className="flex flex-wrap gap-4 text-sm text-gray-500">
+                    <span className="flex items-center">
+                      <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                      Instructor: {course.instructor.name}
+                    </span>
+                    <span className="flex items-center">
+                      <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                      </svg>
+                      Category: {course.category}
+                    </span>
+                    <button
+                      onClick={() => router.push('/instructor')}
+                      className="flex items-center text-blue-600 hover:text-blue-500 transition-colors"
+                    >
+                      <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                      </svg>
+                      Back to Courses
+                    </button>
                   </div>
                 </div>
               </div>
@@ -224,11 +313,47 @@ export default function InstructorCourseDetailPage() {
                     <h3 className="text-lg font-medium text-gray-900">AI Summary</h3>
                   </div>
                   <div className="p-4">
-                    <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
-                      <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">
-                        {activeVideo.editedSummary || activeVideo.summary}
-                      </p>
-                    </div>
+                    {editingSummary === activeVideo.id ? (
+                      <div className="space-y-4">
+                        <textarea
+                          value={summaryText}
+                          onChange={(e) => setSummaryText(e.target.value)}
+                          className="w-full h-32 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Edit the AI summary..."
+                        />
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleSaveSummary(activeVideo.id)}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={handleCancelEdit}
+                            className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <p className="text-gray-800 leading-relaxed whitespace-pre-wrap flex-1">
+                            {activeVideo.editedSummary || activeVideo.summary}
+                          </p>
+                          <button
+                            onClick={() => handleEditSummary(activeVideo.id)}
+                            className="ml-2 text-blue-600 hover:text-blue-500 transition-colors"
+                            title="Edit summary"
+                          >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Transcript Section */}
                     {activeVideo.transcript && (
@@ -268,7 +393,7 @@ export default function InstructorCourseDetailPage() {
                         }`}
                       >
                         <div className="flex items-start space-x-3">
-                          <div className="flex-shrink-0 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-sm font-medium text-gray-600">
+                          <div className="shrink-0 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-sm font-medium text-gray-600">
                             {index + 1}
                           </div>
                           <div className="flex-1 min-w-0">
@@ -332,7 +457,7 @@ export default function InstructorCourseDetailPage() {
                         rel="noopener noreferrer"
                         className="flex items-center p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors last:border-b-0"
                       >
-                        <div className="flex-shrink-0 w-8 h-8 bg-gray-100 rounded flex items-center justify-center text-sm text-gray-600">
+                        <div className="shrink-0 w-8 h-8 bg-gray-100 rounded flex items-center justify-center text-sm text-gray-600">
                           {(material.fileType && material.fileType.toLowerCase().includes('pdf')) ? '📄' : '📝'}
                         </div>
                         <div className="ml-3 flex-1 min-w-0">

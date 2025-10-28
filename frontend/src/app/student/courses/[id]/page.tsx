@@ -268,7 +268,7 @@ export default function CourseDetailPage() {
                         }`}
                       >
                         <div className="flex items-start space-x-3">
-                          <div className="flex-shrink-0 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-sm font-medium text-gray-600">
+                          <div className="shrink-0 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-sm font-medium text-gray-600">
                             {index + 1}
                           </div>
                           <div className="flex-1 min-w-0">
@@ -332,7 +332,7 @@ export default function CourseDetailPage() {
                         rel="noopener noreferrer"
                         className="flex items-center p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors last:border-b-0"
                       >
-                        <div className="flex-shrink-0 w-8 h-8 bg-gray-100 rounded flex items-center justify-center text-sm text-gray-600">
+                        <div className="shrink-0 w-8 h-8 bg-gray-100 rounded flex items-center justify-center text-sm text-gray-600">
                           {(material.fileType && material.fileType.toLowerCase().includes('pdf')) ? '📄' : '📝'}
                         </div>
                         <div className="ml-3 flex-1 min-w-0">

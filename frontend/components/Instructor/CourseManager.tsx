@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { instructorAPI } from '../../lib/api';
 import { Course, Video } from '../../types';
 import VideoPlayer from '../common/VideoPlayer';
 
 export default function CourseManager() {
+  const router = useRouter();
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -222,157 +224,94 @@ const handleCreateCourse = async (e: React.FormEvent) => {
             </button>
           </div>
 
-          <div className="space-y-6">
+          {/* Courses Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {courses.map((course) => (
-              <div key={course.id} className="border border-gray-200 rounded-lg p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-start space-x-4">
-                      {course.thumbnail && (
-                        <img
-                          src={course.thumbnail}
-                          alt={course.title}
-                          className="w-24 h-24 object-cover rounded-lg flex-shrink-0"
-                        />
-                      )}
-                      <div className="flex-1">
-                        <h4 className="text-xl font-semibold text-gray-900">{course.title}</h4>
-                        <p className="text-gray-600 mt-1">{course.description}</p>
-                        <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
-                          <span>Category: {course.category}</span>
-                          <span>•</span>
-                          <span>Price: ${course.price}</span>
-                          <span>•</span>
-                          <span>Students: {course.enrollmentCount}</span>
-                          <span>•</span>
-                          <span>Videos: {course.videos?.length || 0}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => toggleCoursePublish(course.id, course.isPublished)}
-                    className={`px-3 py-1 rounded text-sm font-medium ${
-                      course.isPublished
-                        ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                        : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                    }`}
-                  >
-                    {course.isPublished ? 'Published' : 'Draft'}
-                  </button>
-                </div>
-
-                {/* Videos Section */}
-                <div className="mt-6">
-                  <h5 className="text-lg font-medium text-gray-900 mb-3">Course Videos</h5>
-                  
-                  {course.videos && course.videos.length > 0 ? (
-                    <div className="space-y-4">
-                      {course.videos.map((video) => (
-                        <div key={video.id} className="border border-gray-200 rounded-lg p-4">
-                          <div className="flex justify-between items-start">
-                            <div className="flex-1">
-                              <h6 className="font-medium text-gray-900">{video.title}</h6>
-                              <div className="flex items-center space-x-4 mt-1 text-sm text-gray-500">
-                                <span>Status: 
-                                  <span className={`ml-1 ${
-                                    video.status === 'completed' ? 'text-green-600' :
-                                    video.status === 'processing' ? 'text-yellow-600' :
-                                    'text-red-600'
-                                  }`}>
-                                    {video.status}
-                                  </span>
-                                </span>
-                                <span>•</span>
-                                <span>Size: {(video.fileSize / (1024 * 1024)).toFixed(2)} MB</span>
-                                <span>•</span>
-                                <span>Processing: {video.processingTime?.toFixed(2)}s</span>
-                              </div>
-
-                              {/* Video Player */}
-                              {video.status === 'completed' && (
-                                <div className="mt-3">
-                                  <div className="bg-black rounded-lg overflow-hidden max-w-md">
-                                    <VideoPlayer videoId={video.id} />
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Summary Section */}
-                              {video.status === 'completed' && (
-                                <div className="mt-4">
-                                  <div className="flex justify-between items-center mb-2">
-                                    <h6 className="font-medium text-gray-900">AI Summary</h6>
-                                    <button
-                                      onClick={() => handleEditSummary(video)}
-                                      className="text-blue-600 hover:text-blue-500 text-sm font-medium"
-                                    >
-                                      Edit Summary
-                                    </button>
-                                  </div>
-                                  
-                                  {editingSummary?.videoId === video.id ? (
-                                    <div className="space-y-3">
-                                      <textarea
-                                        value={editingSummary.summary}
-                                        onChange={(e) => setEditingSummary(prev => 
-                                          prev ? {...prev, summary: e.target.value} : null
-                                        )}
-                                        rows={4}
-                                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                        placeholder="Edit the summary..."
-                                      />
-                                      <div className="flex space-x-2">
-                                        <button
-                                          onClick={() => handleSaveSummary(course.id)}
-                                          className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
-                                        >
-                                          Save
-                                        </button>
-                                        <button
-                                          onClick={handleCancelEdit}
-                                          className="bg-gray-600 text-white px-3 py-1 rounded text-sm hover:bg-gray-700"
-                                        >
-                                          Cancel
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
-                                      <p className="text-gray-800 text-sm leading-relaxed">
-                                        {video.editedSummary || video.summary}
-                                      </p>
-                                      {video.editedSummary !== video.summary && (
-                                        <div className="mt-2 text-xs text-blue-600">
-                                          ✓ Edited
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Delete Button */}
-                            <div className="ml-4">
-                              <button
-                                onClick={() => handleDeleteVideo(course.id, video.id)}
-                                className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 transition-colors"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+              <div key={course.id} className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
+                {/* Course Thumbnail */}
+                <div className="relative h-48 bg-gray-100">
+                  {course.thumbnailUrl ? (
+                    <img
+                      src={course.thumbnailUrl}
+                      alt={course.title}
+                      className="w-full h-full object-cover"
+                    />
                   ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      <div className="text-4xl mb-2">🎬</div>
-                      <p>No videos uploaded yet.</p>
-                      <p className="text-sm">Upload videos to get AI-generated summaries.</p>
+                    <div className="w-full h-full flex items-center justify-center text-gray-400">
+                      <svg className="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                      </svg>
                     </div>
                   )}
+                  {/* Status Badge */}
+                  <div className="absolute top-3 right-3">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      course.isPublished
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {course.isPublished ? 'Published' : 'Draft'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Course Content */}
+                <div className="p-6">
+                  <div className="mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">{course.title}</h3>
+                    <p className="text-gray-600 text-sm line-clamp-3">{course.description}</p>
+                  </div>
+
+                  {/* Course Stats */}
+                  <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
+                    <span className="flex items-center">
+                      <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                      </svg>
+                      {course.category}
+                    </span>
+                    <span className="flex items-center">
+                      <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                      </svg>
+                      ${course.price}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
+                    <span className="flex items-center">
+                      <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                      {course.enrollmentCount || 0} students
+                    </span>
+                    <span className="flex items-center">
+                      <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                      {course.videos?.length || 0} videos
+                    </span>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => router.push(`/instructor/courses/${course.id}`)}
+                      className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+                    >
+                      View Details
+                    </button>
+                    <button
+                      onClick={() => toggleCoursePublish(course.id, course.isPublished)}
+                      className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                        course.isPublished
+                          ? 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                          : 'bg-green-100 text-green-800 hover:bg-green-200'
+                      }`}
+                    >
+                      {course.isPublished ? 'Unpublish' : 'Publish'}
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
