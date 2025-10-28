@@ -53,6 +53,7 @@ export const adminAPI = {
 
 export const instructorAPI = {
   getCourses: () => api.get('/instructor/courses'),
+  getCategories: () => api.get('/instructor/categories'),
   getCourseDetails: (courseId: string) =>
     api.get(`/instructor/courses/${courseId}`),
   createCourse: (data: any) => api.post('/instructor/courses', data),

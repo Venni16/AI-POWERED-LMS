@@ -13,6 +13,9 @@ export default function CourseManager() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [editingSummary, setEditingSummary] = useState<{videoId: string, summary: string} | null>(null);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [isNewCategory, setIsNewCategory] = useState(false);
+  const [newCategoryInput, setNewCategoryInput] = useState('');
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -23,6 +26,7 @@ export default function CourseManager() {
 
   useEffect(() => {
     fetchCourses();
+    fetchCategories();
   }, []);
 
   // Add polling for video processing updates
@@ -66,31 +70,45 @@ export default function CourseManager() {
     }
   };
 
+  const fetchCategories = async () => {
+    try {
+      const response = await instructorAPI.getCategories();
+      setCategories(response.data.categories);
+    } catch (error: any) {
+      console.error('Error fetching categories:', error);
+    }
+  };
+
  // Update the handleCreateCourse function
 const handleCreateCourse = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    // Determine the category value
+    const categoryValue = formData.category === 'new' ? newCategoryInput.trim() : formData.category;
+
     // Validate required fields
-    if (!formData.title.trim() || !formData.description.trim() || !formData.category.trim()) {
+    if (!formData.title.trim() || !formData.description.trim() || !categoryValue) {
       alert('Title, description, and category are required');
       return;
     }
-  
+
     try {
       const response = await instructorAPI.createCourse({
         ...formData,
+        category: categoryValue,
         price: parseFloat(formData.price) || 0
       });
-      
+
       if (response.data.success) {
         setShowCreateForm(false);
-        setFormData({ 
-          title: '', 
-          description: '', 
-          category: '', 
-          price: '0', 
-          thumbnail: '' 
+        setFormData({
+          title: '',
+          description: '',
+          category: '',
+          price: '0',
+          thumbnail: ''
         });
+        setNewCategoryInput('');
         fetchCourses();
         alert('Course created successfully!');
       } else {
@@ -178,7 +196,6 @@ const handleCreateCourse = async (e: React.FormEvent) => {
       {showCreateForm && (
         <div className="bg-white shadow rounded-lg p-6">
           <h3 className="text-lg font-medium text-gray-900 mb-4">Create New Course</h3>
-          // In the create course form, add better validation
 <form onSubmit={handleCreateCourse} className="space-y-4">
   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
     <div>
@@ -194,14 +211,29 @@ const handleCreateCourse = async (e: React.FormEvent) => {
     </div>
     <div>
       <label className="block text-sm font-medium text-gray-700">Category *</label>
-      <input
-        type="text"
+      <select
         required
         value={formData.category}
         onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
         className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-        placeholder="e.g., Programming, Design, Business"
-      />
+      >
+        <option value="">Select a category</option>
+        {categories.map((category) => (
+          <option key={category} value={category}>
+            {category}
+          </option>
+        ))}
+        <option value="new">+ Add New Category</option>
+      </select>
+      {formData.category === 'new' && (
+        <input
+          type="text"
+          placeholder="Enter new category"
+          value={newCategoryInput}
+          onChange={(e) => setNewCategoryInput(e.target.value)}
+          className="mt-2 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+        />
+      )}
     </div>
     <div className="md:col-span-2">
       <label className="block text-sm font-medium text-gray-700">Description *</label>

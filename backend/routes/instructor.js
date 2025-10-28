@@ -96,6 +96,31 @@ const processVideoInBackground = async (videoId, videoPath) => {
 router.use(authenticate);
 router.use(authorize('instructor'));
 
+// Get existing categories
+router.get('/categories', async (req, res) => {
+  try {
+    const { supabase } = await import('../lib/supabase.js');
+    const { data: categories, error } = await supabase
+      .from('courses')
+      .select('category')
+      .not('category', 'is', null)
+      .neq('category', '');
+
+    if (error) throw error;
+
+    // Get unique categories and sort them
+    const uniqueCategories = [...new Set(categories.map(c => c.category.trim()))]
+      .filter(cat => cat.length > 0)
+      .sort();
+
+    res.json({ success: true, categories: uniqueCategories });
+
+  } catch (error) {
+    console.error('Get categories error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Get instructor courses
 router.get('/courses', async (req, res) => {
   try {
