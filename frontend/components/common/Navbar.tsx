@@ -1,9 +1,11 @@
 'use client';
 
 import { useAuth } from '../../context/AuthContext';
+import { useState } from 'react';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
+  const [showProfileCard, setShowProfileCard] = useState(false);
 
   const getDashboardLink = () => {
     if (!user) return '/';
@@ -37,13 +39,16 @@ export default function Navbar() {
                 >
                   Dashboard
                 </a>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 relative">
                   <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
                     <span className="text-gray-600 text-sm font-medium">
                       {user.name.charAt(0).toUpperCase()}
                     </span>
                   </div>
-                  <div className="hidden md:block">
+                  <div
+                    className="hidden md:block cursor-pointer"
+                    onClick={() => setShowProfileCard(!showProfileCard)}
+                  >
                     <div className="text-sm font-medium text-gray-800">
                       {user.name}
                     </div>
@@ -51,6 +56,43 @@ export default function Navbar() {
                       {user.role}
                     </div>
                   </div>
+                  {showProfileCard && (
+                    <div className="absolute top-full mt-2 right-0 bg-white border border-gray-200 rounded-lg shadow-lg p-4 w-64 z-50">
+                      <div className="flex items-center space-x-3 mb-3">
+                        <div className="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center">
+                          <span className="text-gray-600 text-lg font-medium">
+                            {user.name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium text-gray-800">
+                            {user.name}
+                          </div>
+                          <div className="text-xs text-gray-500 capitalize">
+                            {user.role}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="text-sm text-gray-600">
+                          <span className="font-medium">Email:</span> {user.email}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          <span className="font-medium">Role:</span> {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                        </div>
+                        {user.profile?.bio && (
+                          <div className="text-sm text-gray-600">
+                            <span className="font-medium">Bio:</span> {user.profile.bio}
+                          </div>
+                        )}
+                        {user.profile?.specialization && (
+                          <div className="text-sm text-gray-600">
+                            <span className="font-medium">Specialization:</span> {user.profile.specialization}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <button
                   onClick={logout}

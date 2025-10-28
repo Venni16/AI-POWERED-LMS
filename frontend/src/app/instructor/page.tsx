@@ -6,10 +6,34 @@ import VideoUploader from '../../../components/Instructor/VideoUploader';
 import MaterialUploader from '../../../components/Instructor/MaterialUploader';
 import StudentEnrollments from '../../../components/Instructor/StudentEnrollments';
 import ChatManager from '../../../components/Instructor/ChatManager';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { instructorAPI } from '../../../lib/api';
 
 export default function InstructorDashboard() {
   const [activeTab, setActiveTab] = useState('courses');
+  const [stats, setStats] = useState({
+    coursesCount: 0,
+    totalStudents: 0,
+    videosCount: 0
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await instructorAPI.getStats();
+        if (response.data.success) {
+          setStats(response.data.stats);
+        }
+      } catch (error) {
+        console.error('Error fetching stats:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, []);
 
   return (
     <ProtectedRoute allowedRoles={['instructor']}>
@@ -40,7 +64,9 @@ export default function InstructorDashboard() {
                   <div className="ml-5 w-0 flex-1">
                     <dl>
                       <dt className="text-sm font-medium text-gray-500 truncate">My Courses</dt>
-                      <dd className="text-lg font-medium text-gray-900">12</dd>
+                      <dd className="text-lg font-medium text-gray-900">
+                        {loading ? '...' : stats.coursesCount}
+                      </dd>
                     </dl>
                   </div>
                 </div>
@@ -58,7 +84,9 @@ export default function InstructorDashboard() {
                   <div className="ml-5 w-0 flex-1">
                     <dl>
                       <dt className="text-sm font-medium text-gray-500 truncate">Total Students</dt>
-                      <dd className="text-lg font-medium text-gray-900">156</dd>
+                      <dd className="text-lg font-medium text-gray-900">
+                        {loading ? '...' : stats.totalStudents}
+                      </dd>
                     </dl>
                   </div>
                 </div>
@@ -76,7 +104,9 @@ export default function InstructorDashboard() {
                   <div className="ml-5 w-0 flex-1">
                     <dl>
                       <dt className="text-sm font-medium text-gray-500 truncate">Videos Uploaded</dt>
-                      <dd className="text-lg font-medium text-gray-900">47</dd>
+                      <dd className="text-lg font-medium text-gray-900">
+                        {loading ? '...' : stats.videosCount}
+                      </dd>
                     </dl>
                   </div>
                 </div>

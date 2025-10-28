@@ -3,10 +3,33 @@
 import ProtectedRoute from '../../../components/common/ProtectedRoute';
 import UserManagement from '../../../components/Admin/UserManagement';
 import AuditLogs from '../../../components/Admin/AuditLogs';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { adminAPI } from '../../../lib/api';
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    totalInstructors: 0,
+    totalStudents: 0,
+    totalCourses: 0
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await adminAPI.getDashboard();
+        setStats(response.data.stats);
+      } catch (error) {
+        console.error('Failed to fetch dashboard stats:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, []);
 
   return (
     <ProtectedRoute allowedRoles={['admin']}>
@@ -37,7 +60,7 @@ export default function AdminDashboard() {
                   <div className="ml-5 w-0 flex-1">
                     <dl>
                       <dt className="text-sm font-medium text-gray-500 truncate">Total Users</dt>
-                      <dd className="text-lg font-medium text-gray-900">1,234</dd>
+                      <dd className="text-lg font-medium text-gray-900">{loading ? '...' : stats.totalUsers}</dd>
                     </dl>
                   </div>
                 </div>
@@ -55,7 +78,7 @@ export default function AdminDashboard() {
                   <div className="ml-5 w-0 flex-1">
                     <dl>
                       <dt className="text-sm font-medium text-gray-500 truncate">Instructors</dt>
-                      <dd className="text-lg font-medium text-gray-900">45</dd>
+                      <dd className="text-lg font-medium text-gray-900">{loading ? '...' : stats.totalInstructors}</dd>
                     </dl>
                   </div>
                 </div>
@@ -73,7 +96,7 @@ export default function AdminDashboard() {
                   <div className="ml-5 w-0 flex-1">
                     <dl>
                       <dt className="text-sm font-medium text-gray-500 truncate">Courses</dt>
-                      <dd className="text-lg font-medium text-gray-900">89</dd>
+                      <dd className="text-lg font-medium text-gray-900">{loading ? '...' : stats.totalCourses}</dd>
                     </dl>
                   </div>
                 </div>
@@ -90,8 +113,8 @@ export default function AdminDashboard() {
                   </div>
                   <div className="ml-5 w-0 flex-1">
                     <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">Active Sessions</dt>
-                      <dd className="text-lg font-medium text-gray-900">23</dd>
+                      <dt className="text-sm font-medium text-gray-500 truncate">Students</dt>
+                      <dd className="text-lg font-medium text-gray-900">{loading ? '...' : stats.totalStudents}</dd>
                     </dl>
                   </div>
                 </div>

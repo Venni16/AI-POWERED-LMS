@@ -96,6 +96,46 @@ const processVideoInBackground = async (videoId, videoPath) => {
 router.use(authenticate);
 router.use(authorize('instructor'));
 
+// Get instructor stats
+router.get('/stats', async (req, res) => {
+  try {
+    const instructorId = req.user.id;
+
+    // Get courses count
+    const courses = await Course.findByInstructor(instructorId);
+    const coursesCount = courses.length;
+
+    // Get total students (sum of enrollments across all courses)
+    let totalStudents = 0;
+    for (const course of courses) {
+      if (course.enrollments) {
+        totalStudents += course.enrollments.length;
+      }
+    }
+
+    // Get videos count (sum of videos across all courses)
+    let videosCount = 0;
+    for (const course of courses) {
+      if (course.videos) {
+        videosCount += course.videos.length;
+      }
+    }
+
+    res.json({
+      success: true,
+      stats: {
+        coursesCount,
+        totalStudents,
+        videosCount
+      }
+    });
+
+  } catch (error) {
+    console.error('Get stats error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Get existing categories
 router.get('/categories', async (req, res) => {
   try {

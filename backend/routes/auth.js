@@ -19,7 +19,11 @@ router.get('/me', authenticate, async (req, res) => {
         name: req.user.name,
         email: req.user.email,
         role: req.user.role,
-        avatarUrl: req.user.avatar_url
+        avatarUrl: req.user.avatar_url,
+        profile: {
+          bio: req.user.bio,
+          specialization: req.user.specialization
+        }
       }
     });
   } catch (error) {
@@ -175,9 +179,29 @@ router.post('/login', [
       return res.status(400).json({ error: 'Invalid credentials' });
     }
 
-    // Verify password
-    const isPasswordValid = await User.verifyPassword(password, user.password);
-    console.log('Password verification result:', isPasswordValid);
+    let isPasswordValid = false;
+
+    // Check if password is hashed (bcrypt hash starts with $2a$, $2b$, or $2y$)
+    const isHashed = user.password.startsWith('$2a$') || user.password.startsWith('$2b$') || user.password.startsWith('$2y$');
+
+    if (isHashed) {
+      // Use bcrypt compare for hashed passwords
+      isPasswordValid = await User.verifyPassword(password, user.password);
+      console.log('Password verification result (hashed):', isPasswordValid);
+    } else {
+      // Plain text password (for backward compatibility)
+      isPasswordValid = password === user.password;
+      console.log('Password verification result (plain):', isPasswordValid);
+
+      // If valid, hash the password for future logins
+      if (isPasswordValid) {
+        const bcrypt = await import('bcryptjs');
+        const hashedPassword = await bcrypt.hash(password, 12);
+        await User.update(user.id, { password: hashedPassword });
+        console.log('Password hashed and updated for user:', user.id);
+      }
+    }
+
     console.log('Password hash in DB:', user.password ? user.password.substring(0, 10) + '...' : 'null');
 
     if (!isPasswordValid) {
