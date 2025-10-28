@@ -194,7 +194,7 @@ router.get('/courses/:courseId', async (req, res) => {
       price: course.price,
       thumbnail: course.thumbnail_url,
       isPublished: course.is_published,
-      enrollmentCount: course.enrollment_count,
+      enrollmentCount: course.enrollments?.length || 0,
       createdAt: course.created_at,
       updatedAt: course.updated_at,
       instructor: course.instructor,
@@ -433,6 +433,59 @@ router.put('/courses/:courseId/videos/:videoId/summary', async (req, res) => {
 
     } catch (error) {
       console.error('Update summary error:', error);
+      res.status(500).json({ error: 'Server error' });
+    }
+  });
+
+// Delete material from course
+router.delete('/courses/:courseId/materials/:materialId', async (req, res) => {
+    try {
+      const course = await Course.findById(req.params.courseId);
+
+      if (!course || course.instructor_id !== req.user.id) {
+        return res.status(404).json({ error: 'Course not found' });
+      }
+
+      const material = await Material.findById(req.params.materialId);
+
+      if (!material || material.course_id !== req.params.courseId) {
+        return res.status(404).json({ error: 'Material not found' });
+      }
+
+      // Delete material file from Supabase storage
+      if (material.storage_path) {
+        try {
+          const { FileUpload } = await import('../utils/fileUpload.js');
+          await FileUpload.deleteFile(material.storage_path);
+          console.log('Material deleted from Supabase storage:', material.storage_path);
+        } catch (storageError) {
+          console.error('Error deleting material from Supabase:', storageError);
+          // Continue with deletion even if storage deletion fails
+        }
+      }
+
+      // Delete material file from local uploads (if exists)
+      const materialPath = path.join('uploads/materials', material.filename);
+      try {
+        await fs.unlink(materialPath);
+      } catch (fileError) {
+        console.error('Error deleting local material file:', fileError);
+      }
+
+      // Delete material record from database
+      await Material.delete(req.params.materialId);
+
+      await createAuditLog(req, 'DELETE_MATERIAL', 'MATERIAL', {
+        courseId: course.id, materialId: material.id
+      });
+
+      res.json({
+        success: true,
+        message: 'Material deleted successfully'
+      });
+
+    } catch (error) {
+      console.error('Delete material error:', error);
       res.status(500).json({ error: 'Server error' });
     }
   });

@@ -76,6 +76,8 @@ export const instructorAPI = {
     api.get(`/instructor/courses/${courseId}/students`),
   deleteVideo: (courseId: string, videoId: string) =>
     api.delete(`/instructor/courses/${courseId}/videos/${videoId}`),
+  deleteMaterial: (courseId: string, materialId: string) =>
+    api.delete(`/instructor/courses/${courseId}/materials/${materialId}`),
   updateVideoSummary: (courseId: string, videoId: string, summary: string) =>
     api.put(`/instructor/courses/${courseId}/videos/${videoId}/summary`, { summary }),
   deleteCourse: (courseId: string) =>
