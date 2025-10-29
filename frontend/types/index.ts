@@ -72,14 +72,18 @@ export interface Enrollment {
 }
 
 export interface AuditLog {
-  _id: string;
+  id: string;
+  _id?: string;
   user: User;
   action: string;
   resource: string;
   details: any;
-  ipAddress: string;
-  userAgent: string;
-  timestamp: string;
+  ip_address?: string;
+  ipAddress?: string;
+  user_agent?: string;
+  userAgent?: string;
+  created_at: string;
+  timestamp?: string;
 }
 
 export interface AuthResponse {

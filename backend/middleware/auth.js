@@ -47,18 +47,27 @@ export const createAuditLog = async (req, action, resource, details = {}) => {
   try {
     const { AuditLog } = await import('../models/AuditLog.js');
 
-    // Check if req.user exists (for public routes)
-    if (!req.user) {
-      console.log('No user found for audit log - skipping');
+    // For public routes like login/register, we don't have req.user yet
+    // We'll create the log with the userId from details if available
+    let userId = req.user?.id;
+
+    // If no user in req.user but userId is in details (for login/register after user creation)
+    if (!userId && details.userId) {
+      userId = details.userId;
+    }
+
+    // If still no userId, skip logging (shouldn't happen for auth actions)
+    if (!userId) {
+      console.log('No userId found for audit log - skipping');
       return;
     }
 
     await AuditLog.create({
-      userId: req.user.id,
+      userId,
       action,
       resource,
       details,
-      ipAddress: req.ip || 'unknown',
+      ipAddress: req.headers['x-forwarded-for']?.split(',')[0] || req.connection.remoteAddress || req.socket.remoteAddress || req.ip || 'unknown',
       userAgent: req.get('User-Agent') || 'unknown'
     });
   } catch (error) {
