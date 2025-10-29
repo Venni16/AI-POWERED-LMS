@@ -157,12 +157,16 @@ export default function StudentEnrollments() {
             </div>
             <div className="bg-green-50 p-4 rounded-lg">
               <div className="text-2xl font-bold text-green-600">
-                {Math.round(enrollments.length * 0.7)}
+                {enrollments.filter(e => (e.progress || 0) > 0).length}
               </div>
               <div className="text-sm text-green-600">Active Students</div>
             </div>
             <div className="bg-purple-50 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-purple-600">65%</div>
+              <div className="text-2xl font-bold text-purple-600">
+                {enrollments.length > 0
+                  ? Math.round(enrollments.reduce((sum, e) => sum + (e.progress || 0), 0) / enrollments.length)
+                  : 0}%
+              </div>
               <div className="text-sm text-purple-600">Average Progress</div>
             </div>
           </div>
