@@ -1,11 +1,11 @@
 import express from 'express';
 import cors from 'cors';
-import mongoose from 'mongoose';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs/promises';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import { supabase } from './lib/supabase.js';
 
 // Import routes with default imports
 import authRoutes from './routes/auth.js';
@@ -24,18 +24,18 @@ const app = express();
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: ['http://localhost:3000', 'http://192.168.40.1:3000'],
+    origin: [process.env.FRONTEND_URL ||'http://localhost:3000', 'http://192.168.40.1:3000'],
     credentials: true
   }
 });
 const PORT = process.env.PORT || 5000;
 
-// MongoDB connection
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/ai-lms';
+// Get URLs from environment
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://192.168.40.1:3000'],
+  origin: [FRONTEND_URL, 'http://192.168.40.1:3000'],
   credentials: true
 }));
 app.use(express.json());
@@ -69,10 +69,10 @@ app.use('/api/chat', chatRoutes);
 // Health check route
 
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
+  res.json({
+    status: 'OK',
     message: 'AI LMS API is running',
-    database: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected'
+    database: 'Connected to Supabase'
   });
 });
 
@@ -127,16 +127,17 @@ const initializeAdmin = async () => {
 // Initialize server
 const startServer = async () => {
   try {
-    // Connect to MongoDB
-    await mongoose.connect(MONGODB_URI);
-    console.log('Connected to MongoDB');
-    
+    // Check Supabase connection
+    const { data, error } = await supabase.from('users').select('count').limit(1);
+    if (error) throw error;
+    console.log('Connected to Supabase');
+
     // Ensure upload directories
     await ensureUploadDirs();
-    
+
     // Initialize default admin
     await initializeAdmin();
-    
+
     server.listen(PORT, () => {
       console.log(`AI LMS Server running on port ${PORT}`);
       console.log(`Health check: http://localhost:${PORT}/health`);

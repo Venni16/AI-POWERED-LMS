@@ -22,7 +22,8 @@ export class VideoProcessor {
       });
 
       // Send to Python server for processing
-      const pythonResponse = await axios.post('http://localhost:8000/process-video', formData, {
+      const PYTHON_SERVER_URL = process.env.PYTHON_SERVER_URL || 'http://localhost:8000';
+      const pythonResponse = await axios.post(`${PYTHON_SERVER_URL}/process-video`, formData, {
         headers: {
           ...formData.getHeaders()
         },

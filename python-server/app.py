@@ -14,10 +14,19 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Video Summarizer API")
 
+# Load environment variables
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
+# Get URLs from environment
+FRONTEND_URL = os.getenv('FRONTEND_URL')
+BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost:5000')
+
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5000"],
+    allow_origins=[FRONTEND_URL, BACKEND_URL],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
