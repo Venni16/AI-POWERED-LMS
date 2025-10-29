@@ -46,6 +46,10 @@ export interface Video {
   status: 'processing' | 'completed' | 'error';
   course: string;
   uploadDate: string;
+  studentProgress?: {
+    completed: boolean;
+    completedAt: string | null;
+  };
 }
 
 export interface Material {
@@ -63,6 +67,8 @@ export interface Material {
 export interface Enrollment {
   student: User;
   enrolledAt: string;
+  enrolled_at?: string;
+  progress?: number;
 }
 
 export interface AuditLog {

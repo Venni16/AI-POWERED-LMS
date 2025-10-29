@@ -191,11 +191,18 @@ export default function CourseDetailPage() {
                           </div>
                         )}
                         
-                        <VideoPlayer videoId={activeVideo.id} />
+                      <VideoPlayer
+                        videoId={activeVideo.id}
+                        courseId={courseId as string}
+                        onVideoComplete={(videoId) => {
+                          console.log('Video completed:', videoId);
+                          // Optionally refresh course data or show notification
+                        }}
+                      />
                       </div>
                       
                       {/* Video Info */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
+                      <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
                         <div>
                           <span className="font-medium">Status:</span>{' '}
                           <span className={`${
@@ -205,14 +212,6 @@ export default function CourseDetailPage() {
                           }`}>
                             {activeVideo.status}
                           </span>
-                        </div>
-                        <div>
-                          <span className="font-medium">File Size:</span>{' '}
-                          {(activeVideo.fileSize / (1024 * 1024)).toFixed(2)} MB
-                        </div>
-                        <div>
-                          <span className="font-medium">Processing:</span>{' '}
-                          {activeVideo.processingTime?.toFixed(2)}s
                         </div>
                         <div>
                           <span className="font-medium">Uploaded:</span>{' '}

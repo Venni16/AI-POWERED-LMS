@@ -3,10 +3,30 @@
 import ProtectedRoute from '../../../components/common/ProtectedRoute';
 import CourseCatalog from '../../../components/student/CourseCatalog';
 import MyCourses from '../../../components/student/MyCourses';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { studentAPI } from '../../../lib/api';
 
 export default function StudentDashboard() {
   const [activeTab, setActiveTab] = useState('my-courses');
+  const [stats, setStats] = useState({
+    enrolledCourses: 0,
+    completedCourses: 0,
+    learningHours: 0,
+    achievements: 7
+  });
+
+  useEffect(() => {
+    fetchDashboardStats();
+  }, []);
+
+  const fetchDashboardStats = async () => {
+    try {
+      const response = await studentAPI.getDashboardStats();
+      setStats(response.data.stats);
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+    }
+  };
 
   return (
     <ProtectedRoute allowedRoles={['student']}>
@@ -37,7 +57,7 @@ export default function StudentDashboard() {
                   <div className="ml-5 w-0 flex-1">
                     <dl>
                       <dt className="text-sm font-medium text-gray-500 truncate">Enrolled Courses</dt>
-                      <dd className="text-lg font-medium text-gray-900">8</dd>
+                      <dd className="text-lg font-medium text-gray-900">{stats.enrolledCourses}</dd>
                     </dl>
                   </div>
                 </div>
@@ -55,7 +75,7 @@ export default function StudentDashboard() {
                   <div className="ml-5 w-0 flex-1">
                     <dl>
                       <dt className="text-sm font-medium text-gray-500 truncate">Completed</dt>
-                      <dd className="text-lg font-medium text-gray-900">3</dd>
+                      <dd className="text-lg font-medium text-gray-900">{stats.completedCourses}</dd>
                     </dl>
                   </div>
                 </div>
@@ -73,7 +93,7 @@ export default function StudentDashboard() {
                   <div className="ml-5 w-0 flex-1">
                     <dl>
                       <dt className="text-sm font-medium text-gray-500 truncate">Learning Hours</dt>
-                      <dd className="text-lg font-medium text-gray-900">42</dd>
+                      <dd className="text-lg font-medium text-gray-900">{stats.learningHours < 60 ? `${stats.learningHours}min` : `${(stats.learningHours / 60).toFixed(2)} hrs`}</dd>
                     </dl>
                   </div>
                 </div>
@@ -91,7 +111,7 @@ export default function StudentDashboard() {
                   <div className="ml-5 w-0 flex-1">
                     <dl>
                       <dt className="text-sm font-medium text-gray-500 truncate">Achievements</dt>
-                      <dd className="text-lg font-medium text-gray-900">7</dd>
+                      <dd className="text-lg font-medium text-gray-900">{stats.achievements}</dd>
                     </dl>
                   </div>
                 </div>
@@ -141,45 +161,7 @@ export default function StudentDashboard() {
           <div className="px-4 sm:px-0 mt-6">
             {activeTab === 'my-courses' && <MyCourses />}
             {activeTab === 'catalog' && <CourseCatalog />}
-            {activeTab === 'progress' && (
-              <div className="bg-white shadow rounded-lg p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Learning Progress</h3>
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                    <div>
-                      <h4 className="font-medium text-gray-900">React Masterclass</h4>
-                      <p className="text-sm text-gray-600">12 of 15 lessons completed</p>
-                    </div>
-                    <div className="w-32 bg-gray-200 rounded-full h-2">
-                      <div className="bg-green-600 h-2 rounded-full" style={{ width: '80%' }}></div>
-                    </div>
-                    <span className="text-sm font-medium text-gray-700">80%</span>
-                  </div>
-                  
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                    <div>
-                      <h4 className="font-medium text-gray-900">Node.js Fundamentals</h4>
-                      <p className="text-sm text-gray-600">8 of 10 lessons completed</p>
-                    </div>
-                    <div className="w-32 bg-gray-200 rounded-full h-2">
-                      <div className="bg-blue-600 h-2 rounded-full" style={{ width: '80%' }}></div>
-                    </div>
-                    <span className="text-sm font-medium text-gray-700">80%</span>
-                  </div>
-                  
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                    <div>
-                      <h4 className="font-medium text-gray-900">Python for Data Science</h4>
-                      <p className="text-sm text-gray-600">5 of 20 lessons completed</p>
-                    </div>
-                    <div className="w-32 bg-gray-200 rounded-full h-2">
-                      <div className="bg-yellow-600 h-2 rounded-full" style={{ width: '25%' }}></div>
-                    </div>
-                    <span className="text-sm font-medium text-gray-700">25%</span>
-                  </div>
-                </div>
-              </div>
-            )}
+            {activeTab === 'progress' && <MyCourses showProgressOnly={true} />}
           </div>
         </div>
       </div>

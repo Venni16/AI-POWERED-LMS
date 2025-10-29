@@ -1,16 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface VideoPlayerProps {
   videoId: string;
+  courseId?: string;
+  onVideoComplete?: (videoId: string) => void;
 }
 
-export default function VideoPlayer({ videoId }: VideoPlayerProps) {
+export default function VideoPlayer({ videoId, courseId, onVideoComplete }: VideoPlayerProps) {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hasCompleted, setHasCompleted] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     fetchVideoUrl();
+    setHasCompleted(false); // Reset completion status when video changes
   }, [videoId]);
 
   const fetchVideoUrl = async () => {
@@ -31,6 +36,47 @@ export default function VideoPlayer({ videoId }: VideoPlayerProps) {
       setError('Failed to load video');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const markVideoAsCompleted = async () => {
+    if (!courseId || hasCompleted) return;
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/student/courses/${courseId}/videos/${videoId}/complete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setHasCompleted(true);
+        onVideoComplete?.(videoId);
+      } else {
+        console.error('Failed to mark video as completed:', data.error);
+      }
+    } catch (error) {
+      console.error('Error marking video as completed:', error);
+    }
+  };
+
+  const handleVideoEnded = () => {
+    markVideoAsCompleted();
+  };
+
+  const handleTimeUpdate = () => {
+    if (videoRef.current && !hasCompleted) {
+      const currentTime = videoRef.current.currentTime;
+      const duration = videoRef.current.duration;
+
+      // Mark as completed if watched 90% or more
+      if (duration > 0 && (currentTime / duration) >= 0.9) {
+        markVideoAsCompleted();
+      }
     }
   };
 
@@ -55,10 +101,13 @@ export default function VideoPlayer({ videoId }: VideoPlayerProps) {
 
   return (
     <video
+      ref={videoRef}
       src={videoUrl || undefined}
       controls
       className="w-full h-48 object-contain"
       crossOrigin="anonymous"
+      onEnded={handleVideoEnded}
+      onTimeUpdate={handleTimeUpdate}
     >
       Your browser does not support the video tag.
     </video>

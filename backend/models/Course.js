@@ -100,7 +100,7 @@ export class Course {
           created_at,
           updated_at,
           instructor:users(id, name, email, avatar_url, specialization),
-          videos(id),
+          videos(id, title, filename, original_name, file_size, file_type, duration, transcript, summary, edited_summary, processing_time, status, course_id, created_at),
           materials(id)
         )
       `)
@@ -108,7 +108,46 @@ export class Course {
       .order('enrolled_at', { ascending: false });
 
     if (error) throw error;
-    return data.map(item => item.course);
+
+    // Get progress data for each course
+    const coursesWithProgress = await Promise.all(
+      data.map(async (item) => {
+        const course = item.course;
+
+        // Get student progress for this course's videos
+        const { data: progressData, error: progressError } = await supabase
+          .from('student_video_progress')
+          .select('video_id, completed, completed_at')
+          .eq('student_id', studentId)
+          .eq('course_id', course.id);
+
+        if (progressError) {
+          console.error('Error fetching progress:', progressError);
+        }
+
+        // Add progress information to videos
+        const videosWithProgress = course.videos?.map(video => {
+          const progress = progressData?.find(p => p.video_id === video.id);
+          return {
+            ...video,
+            studentProgress: progress ? {
+              completed: progress.completed,
+              completedAt: progress.completed_at
+            } : {
+              completed: false,
+              completedAt: null
+            }
+          };
+        }) || [];
+
+        return {
+          ...course,
+          videos: videosWithProgress
+        };
+      })
+    );
+
+    return coursesWithProgress;
   }
 
   static async update(id, updates) {

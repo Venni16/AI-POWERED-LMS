@@ -93,6 +93,7 @@ export const studentAPI = {
     api.post(`/student/courses/${courseId}/enroll`),
   getCourseDetails: (courseId: string) =>
     api.get(`/student/courses/${courseId}`),
+  getDashboardStats: () => api.get('/student/dashboard-stats'),
 };
 
 export const videoAPI = {

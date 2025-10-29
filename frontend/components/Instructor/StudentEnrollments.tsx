@@ -45,7 +45,12 @@ export default function StudentEnrollments() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
+    if (!dateString) return 'Invalid Date';
+    try {
+      return new Date(dateString).toLocaleDateString();
+    } catch (error) {
+      return 'Invalid Date';
+    }
   };
 
   return (
@@ -113,18 +118,18 @@ export default function StudentEnrollments() {
                       {enrollment.student.email}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(enrollment.enrolledAt)}
+                      {formatDate(enrollment.enrolledAt || enrollment.enrolled_at || '')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="w-24 bg-gray-200 rounded-full h-2 mr-2">
-                          <div 
-                            className="bg-green-600 h-2 rounded-full" 
-                            style={{ width: `${Math.min(100, (index + 1) * 20)}%` }}
+                          <div
+                            className="bg-green-600 h-2 rounded-full"
+                            style={{ width: `${enrollment.progress || 0}%` }}
                           ></div>
                         </div>
                         <span className="text-sm text-gray-500">
-                          {Math.min(100, (index + 1) * 20)}%
+                          {enrollment.progress || 0}%
                         </span>
                       </div>
                     </td>

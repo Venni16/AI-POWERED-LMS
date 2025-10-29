@@ -327,7 +327,7 @@ export default function InstructorCourseDetailPage() {
                         </div>
                         <div>
                           <span className="font-medium">Processing:</span>{' '}
-                          {activeVideo.processingTime?.toFixed(2)}s
+                          {activeVideo.processingTime ? `${activeVideo.processingTime.toFixed(2)}s` : 'N/A'}
                         </div>
                         <div>
                           <span className="font-medium">Uploaded:</span>{' '}

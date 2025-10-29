@@ -265,7 +265,20 @@ router.get('/courses/:courseId', async (req, res) => {
       instructor: course.instructor,
       videos: course.videos?.map(video => ({
         ...video,
-        editedSummary: video.edited_summary
+        id: video.id,
+        title: video.title,
+        filename: video.filename,
+        originalName: video.original_name,
+        fileSize: video.file_size,
+        fileType: video.file_type,
+        duration: video.duration,
+        transcript: video.transcript,
+        summary: video.summary,
+        editedSummary: video.edited_summary,
+        processingTime: video.processing_time,
+        status: video.status,
+        course: video.course_id,
+        uploadDate: video.created_at
       })) || [],
       materials: course.materials || []
     };
@@ -402,7 +415,34 @@ router.get('/courses/:courseId/students', async (req, res) => {
 
     if (error) throw error;
 
-    res.json({ success: true, students: enrollments });
+    // Calculate progress for each student
+    const studentsWithProgress = await Promise.all(
+      enrollments.map(async (enrollment) => {
+        try {
+          const { StudentVideoProgress } = await import('../models/StudentVideoProgress.js');
+          const progressData = await StudentVideoProgress.findByStudentAndCourse(enrollment.student.id, req.params.courseId);
+
+          const totalVideos = course.videos?.length || 0;
+          const completedVideos = progressData.filter(p => p.completed).length;
+          const progress = totalVideos > 0 ? (completedVideos / totalVideos) * 100 : 0;
+
+          return {
+            ...enrollment,
+            enrolledAt: enrollment.enrolled_at,
+            progress: Math.round(progress)
+          };
+        } catch (progressError) {
+          console.error(`Error calculating progress for student ${enrollment.student.id}:`, progressError);
+          return {
+            ...enrollment,
+            enrolledAt: enrollment.enrolled_at,
+            progress: 0
+          };
+        }
+      })
+    );
+
+    res.json({ success: true, students: studentsWithProgress });
 
   } catch (error) {
     console.error('Get students error:', error);
