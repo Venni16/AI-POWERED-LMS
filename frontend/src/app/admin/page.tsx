@@ -3,6 +3,7 @@
 import ProtectedRoute from '../../../components/common/ProtectedRoute';
 import UserManagement from '../../../components/Admin/UserManagement';
 import AuditLogs from '../../../components/Admin/AuditLogs';
+import PasswordChanger from '../../../components/Admin/PasswordChanger';
 import { useState, useEffect } from 'react';
 import { adminAPI } from '../../../lib/api';
 
@@ -156,6 +157,16 @@ export default function AdminDashboard() {
                 >
                   Audit Logs
                 </button>
+                <button
+                  onClick={() => setActiveTab('passwords')}
+                  className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'passwords'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Password Changer
+                </button>
               </nav>
             </div>
           </div>
@@ -208,6 +219,7 @@ export default function AdminDashboard() {
 
             {activeTab === 'users' && <UserManagement />}
             {activeTab === 'audit' && <AuditLogs />}
+            {activeTab === 'passwords' && <PasswordChanger />}
           </div>
         </div>
       </div>

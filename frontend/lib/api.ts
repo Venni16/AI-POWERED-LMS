@@ -48,6 +48,8 @@ export const adminAPI = {
   createInstructor: (data: any) => api.post('/admin/users/instructor', data),
   updateUserStatus: (userId: string, isActive: boolean) =>
     api.patch(`/admin/users/${userId}/status`, { isActive }),
+  changeInstructorPassword: (userId: string, password: string) =>
+    api.patch(`/admin/users/${userId}/password`, { password }),
   getAuditLogs: (params?: any) => api.get('/admin/audit-logs', { params }),
 };
 

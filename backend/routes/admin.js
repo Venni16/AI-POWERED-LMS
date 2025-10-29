@@ -41,7 +41,13 @@ router.get('/dashboard', async (req, res) => {
 router.get('/users', async (req, res) => {
   try {
     const users = await User.findAll();
-    res.json({ success: true, users });
+    // Transform snake_case fields to camelCase for frontend
+    const transformedUsers = users.map(user => ({
+      ...user,
+      isActive: user.is_active,
+      createdAt: user.created_at
+    }));
+    res.json({ success: true, users: transformedUsers });
   } catch (error) {
     console.error('Get users error:', error);
     res.status(500).json({ error: 'Server error' });
@@ -109,11 +115,43 @@ router.patch('/users/:userId/status', async (req, res) => {
   }
 });
 
+// Change instructor password
+router.patch('/users/:userId/password', async (req, res) => {
+  try {
+    const { password } = req.body;
+
+    if (!password || password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+    }
+
+    const user = await User.findById(req.params.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (user.role !== 'instructor') {
+      return res.status(403).json({ error: 'Can only change password for instructor accounts' });
+    }
+
+    await User.updatePassword(req.params.userId, password);
+
+    await createAuditLog(req, 'CHANGE_INSTRUCTOR_PASSWORD', 'USER', {
+      userId: user.id, email: user.email
+    });
+
+    res.json({ success: true, message: 'Password updated successfully' });
+
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Get audit logs
 router.get('/audit-logs', async (req, res) => {
   try {
     const { page = 1, limit = 20, action, resource } = req.query;
-    
+
     const filter = {};
     if (action) filter.action = action;
     if (resource) filter.resource = resource;

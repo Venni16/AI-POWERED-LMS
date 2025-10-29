@@ -110,4 +110,18 @@ export class User {
     if (error) throw error;
     return count;
   }
+
+  static async updatePassword(id, newPassword) {
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    const { data, error } = await supabase
+      .from('users')
+      .update({ password: hashedPassword })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
 }

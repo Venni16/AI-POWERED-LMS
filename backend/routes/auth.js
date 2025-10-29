@@ -3,6 +3,7 @@ import { body, validationResult } from 'express-validator';
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
 import { User } from '../models/User.js';
+import { FailedLoginAttempt } from '../models/FailedLoginAttempt.js';
 import { createAuditLog, authenticate } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -206,6 +207,36 @@ router.post('/login', [
 
     if (!isPasswordValid) {
       console.log('Password verification failed');
+
+      // Record failed login attempt
+      try {
+        await FailedLoginAttempt.create({
+          email,
+          ipAddress: req.ip || req.connection.remoteAddress,
+          userAgent: req.get('User-Agent')
+        });
+
+        // Check if user has exceeded failed login attempts (3 attempts in 15 minutes)
+        const recentAttempts = await FailedLoginAttempt.countRecentAttempts(email, 15);
+        console.log(`Failed login attempts for ${email}: ${recentAttempts + 1}`);
+
+        if (recentAttempts >= 2) { // +1 for the current attempt
+          // Deactivate the account
+          await User.update(user.id, { is_active: false });
+          await createAuditLog(req, 'ACCOUNT_LOCKED', 'USER', {
+            userId: user.id,
+            email,
+            reason: 'Too many failed login attempts'
+          });
+
+          return res.status(400).json({
+            error: 'Due to security concerns, your account has been deactivated. Please contact the admin.'
+          });
+        }
+      } catch (attemptError) {
+        console.error('Error recording failed login attempt:', attemptError);
+      }
+
       return res.status(400).json({ error: 'Invalid credentials' });
     }
 
