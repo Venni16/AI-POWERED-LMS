@@ -3,6 +3,7 @@ import { authenticate, authorize, createAuditLog } from '../middleware/auth.js';
 import { User } from '../models/User.js';
 import { Course } from '../models/Course.js';
 import { AuditLog } from '../models/AuditLog.js';
+import { supabase } from '../lib/supabase.js';
 
 const router = express.Router();
 
@@ -17,7 +18,68 @@ router.get('/dashboard', async (req, res) => {
     const totalInstructors = await User.findByRole('instructor').then(users => users.length);
     const totalStudents = await User.findByRole('student').then(users => users.length);
     const totalCourses = await Course.count();
-    
+
+    // Get user registration trends (last 6 months)
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+    const { data: userTrends, error: trendsError } = await supabase
+      .from('users')
+      .select('created_at')
+      .gte('created_at', sixMonthsAgo.toISOString())
+      .order('created_at', { ascending: true });
+
+    if (trendsError) throw trendsError;
+
+    // Process user trends data
+    const monthlyData = {};
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    userTrends.forEach(user => {
+      const date = new Date(user.created_at);
+      const month = months[date.getMonth()];
+
+      if (!monthlyData[month]) {
+        monthlyData[month] = 0;
+      }
+      monthlyData[month]++;
+    });
+
+    const userTrendsData = months.map(month => ({
+      month,
+      users: monthlyData[month] || 0
+    }));
+
+    // Get course enrollment data
+    const { data: enrollments, error: enrollmentsError } = await supabase
+      .from('enrollments')
+      .select(`
+        course_id,
+        courses!inner(title)
+      `);
+
+    if (enrollmentsError) throw enrollmentsError;
+
+    // Count enrollments per course
+    const enrollmentCounts = {};
+    enrollments.forEach(enrollment => {
+      const courseId = enrollment.course_id;
+      const courseTitle = enrollment.courses.title;
+      if (!enrollmentCounts[courseId]) {
+        enrollmentCounts[courseId] = { title: courseTitle, count: 0 };
+      }
+      enrollmentCounts[courseId].count++;
+    });
+
+    // Get top 5 courses by enrollment
+    const courseEnrollmentsData = Object.values(enrollmentCounts)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5)
+      .map(item => ({
+        course: item.title,
+        enrollments: item.count
+      }));
+
     const recentLogs = await AuditLog.getRecent(10);
 
     res.json({
@@ -27,6 +89,15 @@ router.get('/dashboard', async (req, res) => {
         totalInstructors,
         totalStudents,
         totalCourses
+      },
+      charts: {
+        userTrends: userTrendsData,
+        roleDistribution: [
+          { name: 'Students', value: totalStudents, color: '#3B82F6' },
+          { name: 'Instructors', value: totalInstructors, color: '#10B981' },
+          { name: 'Admins', value: 1, color: '#8B5CF6' }
+        ],
+        courseEnrollments: courseEnrollmentsData
       },
       recentLogs
     });

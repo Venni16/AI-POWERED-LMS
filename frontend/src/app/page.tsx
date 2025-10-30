@@ -33,7 +33,7 @@ export default function Home() {
             className="bg-white/90 backdrop-blur-sm pt-4 pb-4 px-4 md:px-8 rounded-2xl shadow-xl mt-13 border border-gray-200"
           >
             <ParticleTextEffect
-              words={["AI-POWERED-LMS","AI-Powered", "Learning","Management System","With","Video Summarization","Course Recommendations"]}
+              words={["AI-POWERED-LMS","AI-Powered", "Learning","Management System","With","Video Summarization","Course Recommendations","Real-Time Chat"]}
               className="mx-auto"
             />
           </motion.div>
@@ -245,7 +245,7 @@ export default function Home() {
               </Button>
             </motion.div>
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button size="lg" variant="outline" className="border-white text-white hover:bg-white hover:text-black shadow-lg" asChild>
+              <Button size="lg" variant="outline" className="border-white text-black hover:bg-white hover:text-black shadow-lg" asChild>
                 <Link href="/login">Login to Continue</Link>
               </Button>
             </motion.div>
