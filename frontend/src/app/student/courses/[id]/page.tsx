@@ -17,6 +17,7 @@ export default function CourseDetailPage() {
   const [loading, setLoading] = useState(true);
   const [activeVideo, setActiveVideo] = useState<Video | null>(null);
   const [expandedVideo, setExpandedVideo] = useState<string | null>(null);
+  const [isTranscriptExpanded, setIsTranscriptExpanded] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -244,12 +245,22 @@ export default function CourseDetailPage() {
                     {/* Transcript Section */}
                     {activeVideo.transcript && (
                       <div className="mt-6">
-                        <h4 className="font-medium text-gray-900 mb-3">Full Transcript</h4>
-                        <div className="bg-gray-50 p-4 rounded-lg max-h-64 overflow-y-auto">
-                          <p className="text-gray-700 whitespace-pre-wrap text-sm leading-relaxed">
-                            {activeVideo.transcript}
-                          </p>
-                        </div>
+                        <button
+                          onClick={() => setIsTranscriptExpanded(!isTranscriptExpanded)}
+                          className="flex items-center text-blue-600 hover:text-blue-500 transition-colors mb-3"
+                        >
+                          <span className="font-medium text-gray-900 mr-2">Full Transcript</span>
+                          <span className={`transform transition-transform ${isTranscriptExpanded ? 'rotate-180' : ''}`}>
+                            ▼
+                          </span>
+                        </button>
+                        {isTranscriptExpanded && (
+                          <div className="bg-gray-50 p-4 rounded-lg max-h-64 overflow-y-auto">
+                            <p className="text-gray-700 whitespace-pre-wrap text-sm leading-relaxed">
+                              {activeVideo.transcript}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
