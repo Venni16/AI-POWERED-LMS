@@ -69,6 +69,9 @@ export interface Enrollment {
   enrolledAt: string;
   enrolled_at?: string;
   progress?: number;
+  achievements?: number;
+  bestQuizScore?: number;
+  quizAttempts?: number;
 }
 
 export interface AuditLog {
@@ -113,3 +116,5 @@ export interface ChatMessage {
   message: string;
   created_at: string;
 }
+
+export type { Mcq, McqSubmissionResult } from './mcq';

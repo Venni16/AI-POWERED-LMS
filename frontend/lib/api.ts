@@ -86,6 +86,13 @@ export const instructorAPI = {
     api.put(`/instructor/courses/${courseId}/videos/${videoId}/summary`, { summary }),
   deleteCourse: (courseId: string) =>
     api.delete(`/instructor/courses/${courseId}`),
+  // MCQ functions
+  getMcqs: (courseId: string) =>
+    api.get(`/instructor/courses/${courseId}/mcqs`),
+  createMcq: (courseId: string, mcqData: any) =>
+    api.post(`/instructor/courses/${courseId}/mcqs`, mcqData),
+  deleteMcq: (courseId: string, mcqId: string) =>
+    api.delete(`/instructor/courses/${courseId}/mcqs/${mcqId}`),
 };
 
 export const studentAPI = {
@@ -96,6 +103,11 @@ export const studentAPI = {
   getCourseDetails: (courseId: string) =>
     api.get(`/student/courses/${courseId}`),
   getDashboardStats: () => api.get('/student/dashboard-stats'),
+  // MCQ functions
+  getMcqs: (courseId: string) =>
+    api.get(`/student/courses/${courseId}/mcqs`),
+  submitMcqAnswers: (courseId: string, answers: Record<string, string>) =>
+    api.post(`/student/courses/${courseId}/mcqs/submit`, { answers }),
 };
 
 export const videoAPI = {

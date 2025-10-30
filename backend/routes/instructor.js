@@ -9,6 +9,7 @@ import { Course } from '../models/Course.js';
 import { Video } from '../models/Video.js';
 import { Material } from '../models/Material.js';
 import { User } from '../models/User.js';
+import { Mcq } from '../models/Mcq.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -415,28 +416,46 @@ router.get('/courses/:courseId/students', async (req, res) => {
 
     if (error) throw error;
 
-    // Calculate progress for each student
+    // Calculate progress for each student and include quiz/achievement data
     const studentsWithProgress = await Promise.all(
       enrollments.map(async (enrollment) => {
         try {
           const { StudentVideoProgress } = await import('../models/StudentVideoProgress.js');
+          const { QuizAttempt } = await import('../models/QuizAttempt.js');
+          const { Achievement } = await import('../models/Achievement.js');
+
           const progressData = await StudentVideoProgress.findByStudentAndCourse(enrollment.student.id, req.params.courseId);
+          const quizAttempts = await QuizAttempt.findByStudentAndCourse(enrollment.student.id, req.params.courseId);
+          const achievements = await Achievement.findByStudentAndCourse(enrollment.student.id, req.params.courseId);
 
           const totalVideos = course.videos?.length || 0;
           const completedVideos = progressData.filter(p => p.completed).length;
           const progress = totalVideos > 0 ? (completedVideos / totalVideos) * 100 : 0;
 
+          // Get best quiz score
+          const bestScore = quizAttempts.length > 0
+            ? Math.max(...quizAttempts.map(attempt => attempt.score))
+            : 0;
+
           return {
             ...enrollment,
             enrolledAt: enrollment.enrolled_at,
-            progress: Math.round(progress)
+            progress: Math.round(progress),
+            quizAttempts: quizAttempts.length,
+            bestQuizScore: bestScore,
+            achievements: achievements.length,
+            lastQuizAttempt: quizAttempts.length > 0 ? quizAttempts[0] : null
           };
         } catch (progressError) {
           console.error(`Error calculating progress for student ${enrollment.student.id}:`, progressError);
           return {
             ...enrollment,
             enrolledAt: enrollment.enrolled_at,
-            progress: 0
+            progress: 0,
+            quizAttempts: 0,
+            bestQuizScore: 0,
+            achievements: 0,
+            lastQuizAttempt: null
           };
         }
       })
@@ -595,6 +614,113 @@ router.delete('/courses/:courseId/materials/:materialId', async (req, res) => {
     }
   });
 
+// Create MCQ for course
+router.post('/courses/:courseId/mcqs', async (req, res) => {
+  try {
+    const course = await Course.findById(req.params.courseId);
+
+    if (!course || course.instructor_id !== req.user.id) {
+      return res.status(404).json({ error: 'Course not found' });
+    }
+
+    const { question, option1, option2, option3, option4, option5, correctOption } = req.body;
+
+    // Validate required fields
+    if (!question || !option1 || !option2 || !option3 || !option4 || !option5 || !correctOption) {
+      return res.status(400).json({
+        error: 'All fields are required (question, 5 options, and correct option)'
+      });
+    }
+
+    // Validate correctOption is between 1-5
+    if (correctOption < 1 || correctOption > 5) {
+      return res.status(400).json({
+        error: 'Correct option must be between 1 and 5'
+      });
+    }
+
+    const mcqData = {
+      courseId: course.id,
+      question: question.trim(),
+      option1: option1.trim(),
+      option2: option2.trim(),
+      option3: option3.trim(),
+      option4: option4.trim(),
+      option5: option5.trim(),
+      correctOption: parseInt(correctOption)
+    };
+
+    const mcq = await Mcq.create(mcqData);
+
+    await createAuditLog(req, 'CREATE_MCQ', 'MCQ', {
+      courseId: course.id, mcqId: mcq.id
+    });
+
+    res.status(201).json({
+      success: true,
+      mcq: mcq
+    });
+
+  } catch (error) {
+    console.error('Create MCQ error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Get MCQs for course
+router.get('/courses/:courseId/mcqs', async (req, res) => {
+  try {
+    const course = await Course.findById(req.params.courseId);
+
+    if (!course || course.instructor_id !== req.user.id) {
+      return res.status(404).json({ error: 'Course not found' });
+    }
+
+    const mcqs = await Mcq.findByCourseId(course.id);
+
+    res.json({
+      success: true,
+      mcqs: mcqs
+    });
+
+  } catch (error) {
+    console.error('Get MCQs error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Delete MCQ
+router.delete('/courses/:courseId/mcqs/:mcqId', async (req, res) => {
+  try {
+    const course = await Course.findById(req.params.courseId);
+
+    if (!course || course.instructor_id !== req.user.id) {
+      return res.status(404).json({ error: 'Course not found' });
+    }
+
+    const mcq = await Mcq.findById(req.params.mcqId);
+
+    if (!mcq || mcq.course_id !== course.id) {
+      return res.status(404).json({ error: 'MCQ not found' });
+    }
+
+    await Mcq.delete(req.params.mcqId);
+
+    await createAuditLog(req, 'DELETE_MCQ', 'MCQ', {
+      courseId: course.id, mcqId: mcq.id
+    });
+
+    res.json({
+      success: true,
+      message: 'MCQ deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Delete MCQ error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Delete course
 router.delete('/courses/:courseId', async (req, res) => {
     try {
@@ -663,6 +789,17 @@ router.delete('/courses/:courseId', async (req, res) => {
             // Continue with other materials
           }
         }
+      }
+
+      // Delete all MCQs for the course
+      try {
+        const mcqs = await Mcq.findByCourseId(course.id);
+        for (const mcq of mcqs) {
+          await Mcq.delete(mcq.id);
+        }
+      } catch (mcqError) {
+        console.error(`Error deleting MCQs for course ${course.id}:`, mcqError);
+        // Continue with course deletion
       }
 
       // Delete course record

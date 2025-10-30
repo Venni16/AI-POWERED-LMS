@@ -6,6 +6,7 @@ import VideoUploader from '../../../components/Instructor/VideoUploader';
 import MaterialUploader from '../../../components/Instructor/MaterialUploader';
 import StudentEnrollments from '../../../components/Instructor/StudentEnrollments';
 import ChatManager from '../../../components/Instructor/ChatManager';
+import McqManager from '../../../components/Instructor/McqManager';
 import { useState, useEffect } from 'react';
 import { instructorAPI } from '../../../lib/api';
 
@@ -158,6 +159,16 @@ export default function InstructorDashboard() {
                 >
                   Chat
                 </button>
+                <button
+                  onClick={() => setActiveTab('mcqs')}
+                  className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'mcqs'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  MCQs
+                </button>
               </nav>
             </div>
           </div>
@@ -173,6 +184,7 @@ export default function InstructorDashboard() {
             )}
             {activeTab === 'students' && <StudentEnrollments />}
             {activeTab === 'chat' && <ChatManager />}
+            {activeTab === 'mcqs' && <McqManager />}
           </div>
         </div>
       </div>

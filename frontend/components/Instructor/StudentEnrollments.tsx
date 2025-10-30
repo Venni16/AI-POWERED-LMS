@@ -93,6 +93,12 @@ export default function StudentEnrollments() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Progress
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Achievements
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Best Quiz Score
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -133,6 +139,12 @@ export default function StudentEnrollments() {
                         </span>
                       </div>
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {enrollment.achievements || 0}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {enrollment.bestQuizScore || 0}%
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -150,7 +162,7 @@ export default function StudentEnrollments() {
 
         {/* Enrollment Stats */}
         {enrollments.length > 0 && (
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-5 gap-4">
             <div className="bg-blue-50 p-4 rounded-lg">
               <div className="text-2xl font-bold text-blue-600">{enrollments.length}</div>
               <div className="text-sm text-blue-600">Total Enrolled</div>
@@ -168,6 +180,32 @@ export default function StudentEnrollments() {
                   : 0}%
               </div>
               <div className="text-sm text-purple-600">Average Progress</div>
+            </div>
+            <div className="bg-yellow-50 p-4 rounded-lg">
+              <div className="text-2xl font-bold text-yellow-600">
+                {enrollments.reduce((sum, e) => sum + (e.achievements || 0), 0)}
+              </div>
+              <div className="text-sm text-yellow-600">Total Achievements</div>
+            </div>
+            <div className="bg-red-50 p-4 rounded-lg">
+              <div className="text-2xl font-bold text-red-600">
+                {(() => {
+                  if (enrollments.length === 0) return '0%';
+                  const bestStudent = enrollments.reduce((best, current) =>
+                    (current.bestQuizScore || 0) > (best.bestQuizScore || 0) ? current : best
+                  );
+                  return `${bestStudent.bestQuizScore || 0}%`;
+                })()}
+              </div>
+              <div className="text-sm text-red-600">
+                Best Quiz Score: {(() => {
+                  if (enrollments.length === 0) return 'No students';
+                  const bestStudent = enrollments.reduce((best, current) =>
+                    (current.bestQuizScore || 0) > (best.bestQuizScore || 0) ? current : best
+                  );
+                  return (bestStudent.bestQuizScore || 0) > 0 ? bestStudent.student.name : 'None';
+                })()}
+              </div>
             </div>
           </div>
         )}

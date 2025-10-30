@@ -2,6 +2,7 @@ import express from 'express';
 import { authenticate, authorize, createAuditLog } from '../middleware/auth.js';
 import { Course } from '../models/Course.js';
 import { User } from '../models/User.js';
+import { Mcq } from '../models/Mcq.js';
 
 const router = express.Router();
 
@@ -232,6 +233,171 @@ router.get('/courses/:courseId/progress', async (req, res) => {
   }
 });
 
+// Get MCQs for course (only if enrolled)
+router.get('/courses/:courseId/mcqs', async (req, res) => {
+  try {
+    // Validate user ID and course ID
+    if (!req.user.id || req.user.id === 'undefined') {
+      return res.status(400).json({ error: 'Invalid user ID' });
+    }
+    if (!req.params.courseId || req.params.courseId === 'undefined') {
+      return res.status(400).json({ error: 'Invalid course ID' });
+    }
+
+    // Check if user is enrolled in the course
+    const { Enrollment } = await import('../models/Enrollment.js');
+    const enrollment = await Enrollment.findByStudentAndCourse(req.user.id, req.params.courseId);
+
+    if (!enrollment) {
+      return res.status(404).json({ error: 'Course not found or access denied' });
+    }
+
+    const mcqs = await Mcq.findByCourseId(req.params.courseId);
+
+    // Get quiz attempt information
+    const { QuizAttempt } = await import('../models/QuizAttempt.js');
+    const attempts = await QuizAttempt.findByStudentAndCourse(req.user.id, req.params.courseId);
+    const attemptCount = attempts.length;
+    const canRetake = attemptCount < 3;
+
+    // Transform MCQs to hide correct answer for students
+    const transformedMcqs = mcqs.map(mcq => ({
+      id: mcq.id,
+      course_id: mcq.course_id,
+      question: mcq.question,
+      option1: mcq.option1,
+      option2: mcq.option2,
+      option3: mcq.option3,
+      option4: mcq.option4,
+      option5: mcq.option5,
+      created_at: mcq.created_at
+      // Note: correct_option is intentionally excluded for students
+    }));
+
+    res.json({
+      success: true,
+      mcqs: transformedMcqs,
+      quizInfo: {
+        attemptCount: attemptCount,
+        maxAttempts: 3,
+        canRetake: canRetake,
+        attemptsRemaining: Math.max(0, 3 - attemptCount),
+        lastAttempt: attempts.length > 0 ? attempts[0] : null
+      }
+    });
+
+  } catch (error) {
+    console.error('Get MCQs error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Submit MCQ answers for course
+router.post('/courses/:courseId/mcqs/submit', async (req, res) => {
+  try {
+    // Validate user ID and course ID
+    if (!req.user.id || req.user.id === 'undefined') {
+      return res.status(400).json({ error: 'Invalid user ID' });
+    }
+    if (!req.params.courseId || req.params.courseId === 'undefined') {
+      return res.status(400).json({ error: 'Invalid course ID' });
+    }
+
+    // Check if user is enrolled in the course
+    const { Enrollment } = await import('../models/Enrollment.js');
+    const enrollment = await Enrollment.findByStudentAndCourse(req.user.id, req.params.courseId);
+
+    if (!enrollment) {
+      return res.status(404).json({ error: 'Course not found or access denied' });
+    }
+
+    const { answers } = req.body; // Expected format: { mcqId: selectedOption, ... }
+
+    if (!answers || typeof answers !== 'object') {
+      return res.status(400).json({ error: 'Answers must be provided as an object' });
+    }
+
+    // Get all MCQs for the course
+    const mcqs = await Mcq.findByCourseId(req.params.courseId);
+
+    let correctCount = 0;
+    let totalCount = mcqs.length;
+    const results = [];
+
+    for (const mcq of mcqs) {
+      const studentAnswer = answers[mcq.id];
+      const isCorrect = studentAnswer && parseInt(studentAnswer) === mcq.correct_option;
+
+      if (isCorrect) {
+        correctCount++;
+      }
+
+      results.push({
+        mcqId: mcq.id,
+        question: mcq.question,
+        studentAnswer: studentAnswer || null,
+        correctAnswer: mcq.correct_option,
+        isCorrect: isCorrect
+      });
+    }
+
+    const score = totalCount > 0 ? (correctCount / totalCount) * 100 : 0;
+
+    // Check current attempt count
+    const { QuizAttempt } = await import('../models/QuizAttempt.js');
+    const currentAttempts = await QuizAttempt.countAttemptsByStudentAndCourse(req.user.id, req.params.courseId);
+
+    if (currentAttempts >= 3) {
+      return res.status(400).json({ error: 'Maximum quiz attempts (3) reached for this course' });
+    }
+
+    // Record this attempt
+    const attemptNumber = currentAttempts + 1;
+    const attempt = await QuizAttempt.create({
+      studentId: req.user.id,
+      courseId: req.params.courseId,
+      attemptNumber: attemptNumber,
+      score: Math.round(score),
+      totalQuestions: totalCount,
+      correctAnswers: correctCount
+    });
+
+    // Award achievement if student gets full marks
+    let achievement = null;
+    if (score === 100 && totalCount > 0) {
+      // Get course details for achievement description
+      const course = await Course.findById(req.params.courseId);
+
+      // Create achievement record
+      const { Achievement } = await import('../models/Achievement.js');
+      achievement = await Achievement.create({
+        studentId: req.user.id,
+        courseId: req.params.courseId,
+        type: 'QUIZ_PERFECT',
+        title: 'Perfect Quiz Score',
+        description: `Achieved 100% on ${course.title} quiz`
+      });
+    }
+
+    res.json({
+      success: true,
+      results: {
+        totalQuestions: totalCount,
+        correctAnswers: correctCount,
+        score: Math.round(score),
+        details: results,
+        achievement: achievement,
+        attemptNumber: attemptNumber,
+        attemptsRemaining: Math.max(0, 3 - attemptNumber)
+      }
+    });
+
+  } catch (error) {
+    console.error('Submit MCQ answers error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Get student dashboard stats
 router.get('/dashboard-stats', async (req, res) => {
   try {
@@ -262,11 +428,15 @@ router.get('/dashboard-stats', async (req, res) => {
       totalLearningHours += (totalVideos * 10) + ((course.materials?.length || 0) * 10);
     }
 
+    // Get actual achievement count
+    const { Achievement } = await import('../models/Achievement.js');
+    const achievementCount = await Achievement.countByStudent(req.user.id);
+
     const stats = {
       enrolledCourses: enrolledCoursesCount,
       completedCourses: completedCoursesCount,
       learningHours: totalLearningHours,
-      achievements: 7 // Static for now as requested
+      achievements: achievementCount
     };
 
     res.json({ success: true, stats });

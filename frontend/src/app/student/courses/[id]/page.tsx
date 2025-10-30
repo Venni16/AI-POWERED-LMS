@@ -5,8 +5,9 @@ import { useState, useEffect } from 'react';
 import ProtectedRoute from '../../../../../components/common/ProtectedRoute';
 import VideoPlayer from '../../../../../components/common/VideoPlayer';
 import Chat from '../../../../../components/common/Chat';
+import McqQuiz from '../../../../../components/student/McqQuiz';
 import { studentAPI, videoAPI } from '../../../../../lib/api';
-import { Course, Video, User } from '../../../../../types';
+import { Course, Video, User, Mcq } from '../../../../../types';
 
 export default function CourseDetailPage() {
   const router = useRouter();
@@ -21,6 +22,7 @@ export default function CourseDetailPage() {
   const [videoError, setVideoError] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [showQuiz, setShowQuiz] = useState(false);
 
   useEffect(() => {
     if (courseId && typeof courseId === 'string') {
@@ -370,6 +372,30 @@ export default function CourseDetailPage() {
                   </div>
                 </div>
               )}
+
+              {/* MCQs Section */}
+              <div className="bg-white rounded-lg shadow">
+                <div className="p-4 border-b border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-medium text-gray-900">MCQs</h3>
+                    <button
+                      onClick={() => setShowQuiz(!showQuiz)}
+                      className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
+                    >
+                      {showQuiz ? 'Hide Quiz' : 'Take Quiz'}
+                    </button>
+                  </div>
+                </div>
+                <div className="p-4">
+                  {showQuiz ? (
+                    <McqQuiz courseId={courseId as string} onClose={() => setShowQuiz(false)} />
+                  ) : (
+                    <p className="text-gray-600 text-sm">
+                      Click "Take Quiz" to start answering MCQs for this course.
+                    </p>
+                  )}
+                </div>
+              </div>
 
               {/* Chat Component */}
               {currentUser && (
