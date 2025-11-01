@@ -5,6 +5,8 @@ import { OAuth2Client } from 'google-auth-library';
 import { User } from '../models/User.js';
 import { FailedLoginAttempt } from '../models/FailedLoginAttempt.js';
 import { createAuditLog, authenticate } from '../middleware/auth.js';
+import { upload } from '../utils/fileUpload.js';
+import { FileUpload } from '../utils/fileUpload.js';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
@@ -30,6 +32,76 @@ router.get('/me', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Get me error:', error);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Update user profile
+router.put('/profile', authenticate, upload.single('avatar'), [
+  body('name').optional().trim().isLength({ min: 2 }).withMessage('Name must be at least 2 characters'),
+  body('email').optional().isEmail().withMessage('Valid email required'),
+  body('bio').optional().trim().isLength({ max: 500 }).withMessage('Bio must be less than 500 characters'),
+  body('specialization').optional().trim().isLength({ max: 100 }).withMessage('Specialization must be less than 100 characters')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { name, email, bio, specialization } = req.body;
+    const userId = req.user.id;
+
+    // Check if email is being changed and if it's already taken
+    if (email && email !== req.user.email) {
+      const existingUser = await User.findByEmail(email);
+      if (existingUser && existingUser.id !== userId) {
+        return res.status(400).json({ error: 'Email already in use' });
+      }
+    }
+
+    let avatarUrl = req.user.avatar_url;
+
+    // Handle avatar upload if file is provided
+    if (req.file) {
+      try {
+        const uploadResult = await FileUpload.uploadAvatar(req.file, userId);
+        avatarUrl = uploadResult.publicUrl;
+      } catch (uploadError) {
+        console.error('Avatar upload error:', uploadError);
+        return res.status(500).json({ error: 'Failed to upload avatar' });
+      }
+    }
+
+    // Update user profile
+    const updateData = {};
+    if (name !== undefined) updateData.name = name;
+    if (email !== undefined) updateData.email = email;
+    if (bio !== undefined) updateData.bio = bio;
+    if (specialization !== undefined) updateData.specialization = specialization;
+    if (avatarUrl !== req.user.avatar_url) updateData.avatar_url = avatarUrl;
+
+    const updatedUser = await User.update(userId, updateData);
+
+    await createAuditLog(req, 'PROFILE_UPDATE', 'USER', { userId });
+
+    res.json({
+      success: true,
+      user: {
+        id: updatedUser.id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        avatarUrl: updatedUser.avatar_url,
+        profile: {
+          bio: updatedUser.bio,
+          specialization: updatedUser.specialization
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Profile update error:', error);
+    res.status(500).json({ error: 'Server error during profile update' });
   }
 });
 

@@ -3,6 +3,9 @@ export interface User {
   name: string;
   email: string;
   role: 'admin' | 'instructor' | 'student';
+  avatar_url?: string;
+  bio?: string;
+  specialization?: string;
   profile?: {
     bio?: string;
     avatar?: string;

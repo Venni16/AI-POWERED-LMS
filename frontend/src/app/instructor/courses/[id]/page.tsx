@@ -5,8 +5,11 @@ import { useState, useEffect } from 'react';
 import ProtectedRoute from '../../../../../components/common/ProtectedRoute';
 import VideoPlayer from '../../../../../components/common/VideoPlayer';
 import Chat from '../../../../../components/common/Chat';
-import { instructorAPI, videoAPI } from '../../../../../lib/api';
+import { instructorAPI } from '../../../../../lib/api';
 import { Course, Video, User } from '../../../../../types';
+import { BookOpen, Video as VideoIcon, FileText, MessageSquare, Edit, Trash2, Loader2, ChevronDown, ChevronUp, CheckCircle, AlertTriangle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useToast } from '../../../../../lib/useToast';
 
 export default function InstructorCourseDetailPage() {
   const router = useRouter();
@@ -17,11 +20,14 @@ export default function InstructorCourseDetailPage() {
   const [loading, setLoading] = useState(true);
   const [activeVideo, setActiveVideo] = useState<Video | null>(null);
   const [expandedVideo, setExpandedVideo] = useState<string | null>(null);
+  const [isTranscriptExpanded, setIsTranscriptExpanded] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [editingSummary, setEditingSummary] = useState<string | null>(null);
   const [summaryText, setSummaryText] = useState<string>('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteItem, setDeleteItem] = useState<{ type: 'video' | 'material'; id: string; name: string } | null>(null);
+  const { showSuccess, showError } = useToast();
 
   useEffect(() => {
     if (courseId && typeof courseId === 'string') {
@@ -32,7 +38,7 @@ export default function InstructorCourseDetailPage() {
     }
   }, [courseId]);
 
-  const fetchCurrentUser = async () => {
+  const fetchCurrentUser = () => {
     try {
       const userData = localStorage.getItem('user');
       if (userData) {
@@ -46,14 +52,22 @@ export default function InstructorCourseDetailPage() {
   const fetchCourseDetails = async () => {
     try {
       const response = await instructorAPI.getCourseDetails(courseId as string);
-      setCourse(response.data.course);
-      if (response.data.course.videos?.length > 0) {
-        setActiveVideo(response.data.course.videos[0]);
+      const fetchedCourse = response.data.course;
+      setCourse(fetchedCourse);
+      
+      // Set active video: keep current active, or set to first if none
+      if (!activeVideo && fetchedCourse.videos?.length > 0) {
+        setActiveVideo(fetchedCourse.videos[0]);
+      } else if (activeVideo) {
+        // Update active video details if it's still in the list (e.g., status changed)
+        const updatedActive = fetchedCourse.videos?.find((v: Video) => v.id === activeVideo.id);
+        if (updatedActive) setActiveVideo(updatedActive);
       }
+
     } catch (error: any) {
       console.error('Error fetching course details:', error);
       if (error.response?.status === 400) {
-        console.error('Bad request - invalid course ID or ownership');
+        showError('Bad request - invalid course ID or ownership');
       }
     } finally {
       setLoading(false);
@@ -62,43 +76,6 @@ export default function InstructorCourseDetailPage() {
 
   const toggleVideoExpansion = (videoId: string) => {
     setExpandedVideo(expandedVideo === videoId ? null : videoId);
-  };
-
-  const fetchVideoUrl = async (videoId: string) => {
-    try {
-      // Get public URL directly
-      const response = await fetch(`http://localhost:5000/api/video/${videoId}/public-url`);
-      const data = await response.json();
-      if (data.success) {
-        setVideoUrl(data.url);
-        return data.url;
-      }
-    } catch (error) {
-      console.error('Failed to fetch video URL:', error);
-    }
-    return null;
-  };
-
-  const handleVideoError = (e: React.SyntheticEvent<HTMLVideoElement, Event>, video: Video) => {
-    const videoElement = e.target as HTMLVideoElement;
-    const error = videoElement.error;
-    console.error('Video loading error:', error || 'Unknown error');
-    setVideoError(`Failed to load video: ${video.title}`);
-
-    // Try alternative sources
-    const sources = [
-      `http://localhost:5000/api/video/${video.id}/stream`,
-      `http://localhost:5000/uploads/videos/${video.filename}`,
-      courseId ? `http://localhost:5000/api/courses/${courseId as string}/videos/${video.id}/file` : null
-    ].filter(Boolean);
-
-    let currentSourceIndex = sources.findIndex(src => src === videoElement.src);
-    let nextSourceIndex = (currentSourceIndex + 1) % sources.length;
-
-    if (nextSourceIndex > 0 && sources[nextSourceIndex]) {
-      console.log(`Trying alternative video source: ${sources[nextSourceIndex]}`);
-      videoElement.src = sources[nextSourceIndex];
-    }
   };
 
   const handleEditSummary = (videoId: string) => {
@@ -116,8 +93,10 @@ export default function InstructorCourseDetailPage() {
       await fetchCourseDetails();
       setEditingSummary(null);
       setSummaryText('');
+      showSuccess('Summary updated successfully!');
     } catch (error) {
       console.error('Failed to save summary:', error);
+      showError('Failed to save summary.');
     }
   };
 
@@ -126,42 +105,46 @@ export default function InstructorCourseDetailPage() {
     setSummaryText('');
   };
 
-  const handleDeleteVideo = async (videoId: string) => {
-    if (!confirm('Are you sure you want to delete this video? This action cannot be undone.')) {
-      return;
-    }
+  const handleDeleteVideo = (videoId: string, videoTitle: string) => {
+    setDeleteItem({ type: 'video', id: videoId, name: videoTitle });
+    setShowDeleteConfirm(true);
+  };
+
+  const handleDeleteMaterial = (materialId: string, materialTitle: string) => {
+    setDeleteItem({ type: 'material', id: materialId, name: materialTitle });
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteItem || !courseId) return;
 
     try {
-      await instructorAPI.deleteVideo(courseId as string, videoId);
+      if (deleteItem.type === 'video') {
+        await instructorAPI.deleteVideo(courseId as string, deleteItem.id);
+        // If the deleted video was active, clear it
+        if (activeVideo?.id === deleteItem.id) {
+          setActiveVideo(null);
+          setVideoError(null);
+        }
+        showSuccess('Video deleted successfully!');
+      } else {
+        await instructorAPI.deleteMaterial(courseId as string, deleteItem.id);
+        showSuccess('Material deleted successfully!');
+      }
       // Refresh course details after deletion
       await fetchCourseDetails();
-      // If the deleted video was active, clear it
-      if (activeVideo?.id === videoId) {
-        setActiveVideo(null);
-        setVideoError(null);
-        setVideoUrl(null);
-      }
-      alert('Video deleted successfully!');
     } catch (error: any) {
-      console.error('Failed to delete video:', error);
-      alert(error.response?.data?.error || 'Failed to delete video');
+      console.error(`Failed to delete ${deleteItem.type}:`, error);
+      showError(error.response?.data?.error || `Failed to delete ${deleteItem.type}`);
+    } finally {
+      setShowDeleteConfirm(false);
+      setDeleteItem(null);
     }
   };
 
-  const handleDeleteMaterial = async (materialId: string) => {
-    if (!confirm('Are you sure you want to delete this material? This action cannot be undone.')) {
-      return;
-    }
-
-    try {
-      await instructorAPI.deleteMaterial(courseId as string, materialId);
-      // Refresh course details after deletion
-      await fetchCourseDetails();
-      alert('Material deleted successfully!');
-    } catch (error: any) {
-      console.error('Failed to delete material:', error);
-      alert(error.response?.data?.error || 'Failed to delete material');
-    }
+  const cancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setDeleteItem(null);
   };
 
   if (loading) {
@@ -178,7 +161,7 @@ export default function InstructorCourseDetailPage() {
     return (
       <ProtectedRoute allowedRoles={['instructor']}>
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <div className="text-center">
+          <div className="text-center bg-white p-8 rounded-xl shadow-lg">
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Course Not Found</h1>
             <p className="text-gray-600">The course you're looking for doesn't exist or you don't have access.</p>
           </div>
@@ -190,24 +173,22 @@ export default function InstructorCourseDetailPage() {
   return (
     <ProtectedRoute allowedRoles={['instructor']}>
       <div className="min-h-screen bg-gray-50">
-        <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto py-10 sm:px-6 lg:px-8">
           {/* Course Header */}
-          <div className="px-4 py-6 sm:px-0">
-            <div className="bg-white rounded-lg shadow p-6">
+          <div className="px-4 sm:px-0 mb-8">
+            <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
               <div className="flex flex-col lg:flex-row lg:items-start space-y-6 lg:space-y-0 lg:space-x-8">
                 {/* Course Thumbnail */}
                 <div className="flex-shrink-0">
-                  {course.thumbnail ? (
+                  {course.thumbnailUrl ? (
                     <img
-                      src={course.thumbnail}
+                      src={course.thumbnailUrl}
                       alt={course.title}
                       className="w-full lg:w-80 h-56 object-cover rounded-lg shadow-md"
                     />
                   ) : (
                     <div className="w-full lg:w-80 h-56 bg-gray-100 rounded-lg flex items-center justify-center">
-                      <svg className="w-20 h-20 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                      </svg>
+                      <BookOpen className="w-20 h-20 text-gray-400" />
                     </div>
                   )}
                 </div>
@@ -221,10 +202,10 @@ export default function InstructorCourseDetailPage() {
                     </div>
                     {/* Status Badge */}
                     <div className="flex-shrink-0 mt-2 sm:mt-0 sm:ml-4">
-                      <span className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${
+                      <span className={`inline-flex px-3 py-1 rounded-full text-sm font-medium shadow-sm ${
                         course.isPublished
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-800'
+                          ? 'bg-green-500 text-white'
+                          : 'bg-yellow-500 text-white'
                       }`}>
                         {course.isPublished ? 'Published' : 'Draft'}
                       </span>
@@ -233,92 +214,104 @@ export default function InstructorCourseDetailPage() {
 
                   {/* Course Stats */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                    <div className="bg-gray-50 rounded-lg p-4 text-center">
+                    <div className="bg-gray-50 rounded-lg p-4 text-center border border-gray-200">
                       <div className="text-2xl font-bold text-gray-900">{course.enrollmentCount || 0}</div>
                       <div className="text-sm text-gray-600">Students</div>
                     </div>
-                    <div className="bg-gray-50 rounded-lg p-4 text-center">
+                    <div className="bg-gray-50 rounded-lg p-4 text-center border border-gray-200">
                       <div className="text-2xl font-bold text-gray-900">{course.videos?.length || 0}</div>
                       <div className="text-sm text-gray-600">Videos</div>
                     </div>
-                    <div className="bg-gray-50 rounded-lg p-4 text-center">
+                    <div className="bg-gray-50 rounded-lg p-4 text-center border border-gray-200">
                       <div className="text-2xl font-bold text-gray-900">{course.materials?.length || 0}</div>
                       <div className="text-sm text-gray-600">Materials</div>
                     </div>
-                    <div className="bg-gray-50 rounded-lg p-4 text-center">
+                    <div className="bg-gray-50 rounded-lg p-4 text-center border border-gray-200">
                       <div className="text-2xl font-bold text-gray-900">${course.price}</div>
                       <div className="text-sm text-gray-600">Price</div>
                     </div>
                   </div>
 
-                  {/* Additional Info */}
-                  <div className="flex flex-wrap gap-4 text-sm text-gray-500">
-                    <span className="flex items-center">
-                      <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
-                      Instructor: {course.instructor.name}
-                    </span>
-                    <span className="flex items-center">
-                      <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                      </svg>
-                      Category: {course.category}
-                    </span>
-                    <button
-                      onClick={() => router.push('/instructor')}
-                      className="flex items-center text-blue-600 hover:text-blue-500 transition-colors"
-                    >
-                      <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                      </svg>
-                      Back to Courses
-                    </button>
-                  </div>
+                  {/* Actions */}
+                  <button
+                    onClick={() => router.push('/instructor')}
+                    className="flex items-center text-black hover:underline transition-colors text-sm font-medium"
+                  >
+                    <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Back to Course Manager
+                  </button>
                 </div>
               </div>
             </div>
           </div>
 
+          {/* Delete Confirmation Modal */}
+          <AnimatePresence>
+            {showDeleteConfirm && deleteItem && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50"
+                onClick={cancelDelete}
+              >
+                <motion.div
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.95, opacity: 0 }}
+                  className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-xl"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Confirm Deletion</h3>
+                  <p className="text-gray-600 mb-6">
+                    Are you sure you want to delete this {deleteItem.type} <strong>"{deleteItem.name}"</strong>? This action cannot be undone.
+                  </p>
+                  <div className="flex space-x-3 justify-end">
+                    <button
+                      onClick={cancelDelete}
+                      className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={confirmDelete}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 px-4 sm:px-0">
-            {/* Video Player */}
-            <div className="lg:col-span-2">
-              <div className="bg-white rounded-lg shadow">
+            {/* Main Content (Video Player & Summary) */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Video Player */}
+              <div className="bg-white rounded-xl shadow-lg border border-gray-200">
                 <div className="p-4 border-b border-gray-200">
-                  <h2 className="text-lg font-medium text-gray-900">
-                    {activeVideo ? activeVideo.title : 'Select a video to start learning'}
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    {activeVideo ? activeVideo.title : 'Select a video to preview'}
                   </h2>
                 </div>
                 <div className="p-4">
                   {activeVideo ? (
                     <div className="space-y-4">
-                      {/* Video Player with Error Handling */}
-                      <div className="bg-black rounded-lg overflow-hidden">
-                        {videoError && (
-                          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-                            <div className="flex items-center">
-                              <div className="text-red-600 text-lg mr-2">❌</div>
-                              <div>
-                                <p className="text-red-800 font-medium">Video Error</p>
-                                <p className="text-red-600 text-sm">{videoError}</p>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        <VideoPlayer videoId={activeVideo.id} />
-                      </div>
+                      <VideoPlayer videoId={activeVideo.id} />
 
                       {/* Video Info */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600 border-t pt-4">
                         <div>
                           <span className="font-medium">Status:</span>{' '}
-                          <span className={`${
+                          <span className={`font-semibold ${
                             activeVideo.status === 'completed' ? 'text-green-600' :
                             activeVideo.status === 'processing' ? 'text-yellow-600' :
                             'text-red-600'
                           }`}>
-                            {activeVideo.status}
+                            {activeVideo.status.toUpperCase()}
                           </span>
                         </div>
                         <div>
@@ -338,7 +331,7 @@ export default function InstructorCourseDetailPage() {
                   ) : (
                     <div className="text-center py-12 text-gray-500">
                       <div className="text-6xl mb-4">🎬</div>
-                      <p>Select a video from the list to start watching</p>
+                      <p>Select a video from the list to start previewing</p>
                     </div>
                   )}
                 </div>
@@ -346,48 +339,53 @@ export default function InstructorCourseDetailPage() {
 
               {/* AI Summary Section */}
               {activeVideo && activeVideo.status === 'completed' && (
-                <div className="bg-white rounded-lg shadow mt-6">
+                <div className="bg-white rounded-xl shadow-lg border border-gray-200">
                   <div className="p-4 border-b border-gray-200">
-                    <h3 className="text-lg font-medium text-gray-900">AI Summary</h3>
+                    <h3 className="text-xl font-semibold text-gray-900">AI Summary & Transcript</h3>
                   </div>
-                  <div className="p-4">
+                  <div className="p-6">
+                    <h4 className="text-lg font-medium text-gray-800 mb-3">Summary</h4>
                     {editingSummary === activeVideo.id ? (
-                      <div className="space-y-4">
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="space-y-4"
+                      >
                         <textarea
                           value={summaryText}
                           onChange={(e) => setSummaryText(e.target.value)}
-                          className="w-full h-32 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="w-full h-32 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
                           placeholder="Edit the AI summary..."
                         />
-                        <div className="flex space-x-2">
+                        <div className="flex space-x-3">
                           <button
                             onClick={() => handleSaveSummary(activeVideo.id)}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                            className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors text-sm font-medium shadow-md"
                           >
-                            Save
+                            Save Changes
                           </button>
                           <button
                             onClick={handleCancelEdit}
-                            className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm font-medium"
                           >
                             Cancel
                           </button>
                         </div>
-                      </div>
+                      </motion.div>
                     ) : (
-                      <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                         <div className="flex justify-between items-start mb-2">
                           <p className="text-gray-800 leading-relaxed whitespace-pre-wrap flex-1">
-                            {activeVideo.editedSummary || activeVideo.summary}
+                            {activeVideo.editedSummary || activeVideo.summary || 'No summary available.'}
                           </p>
                           <button
                             onClick={() => handleEditSummary(activeVideo.id)}
-                            className="ml-2 text-blue-600 hover:text-blue-500 transition-colors"
+                            className="ml-2 text-black hover:text-gray-700 transition-colors p-1 rounded-full hover:bg-gray-100"
                             title="Edit summary"
                           >
-                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
+                            <Edit className="w-5 h-5" />
                           </button>
                         </div>
                       </div>
@@ -396,12 +394,32 @@ export default function InstructorCourseDetailPage() {
                     {/* Transcript Section */}
                     {activeVideo.transcript && (
                       <div className="mt-6">
-                        <h4 className="font-medium text-gray-900 mb-3">Full Transcript</h4>
-                        <div className="bg-gray-50 p-4 rounded-lg max-h-64 overflow-y-auto">
-                          <p className="text-gray-700 whitespace-pre-wrap text-sm leading-relaxed">
-                            {activeVideo.transcript}
-                          </p>
-                        </div>
+                        <button
+                          onClick={() => setIsTranscriptExpanded(!isTranscriptExpanded)}
+                          className="flex items-center text-black hover:underline transition-colors mb-3 font-medium"
+                        >
+                          Full Transcript
+                          {isTranscriptExpanded ? (
+                            <ChevronUp className="w-4 h-4 ml-2" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 ml-2" />
+                          )}
+                        </button>
+                        <AnimatePresence>
+                          {isTranscriptExpanded && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              exit={{ opacity: 0, height: 0 }}
+                              transition={{ duration: 0.3 }}
+                              className="bg-gray-50 p-4 rounded-lg max-h-64 overflow-y-auto border border-gray-200"
+                            >
+                              <p className="text-gray-700 whitespace-pre-wrap text-sm leading-relaxed">
+                                {activeVideo.transcript}
+                              </p>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </div>
                     )}
                   </div>
@@ -409,29 +427,28 @@ export default function InstructorCourseDetailPage() {
               )}
             </div>
 
-            {/* Course Content Sidebar */}
+            {/* Sidebar (Content & Tools) */}
             <div className="space-y-6">
               {/* Videos List */}
-              <div className="bg-white rounded-lg shadow">
+              <div className="bg-white rounded-xl shadow-lg border border-gray-200">
                 <div className="p-4 border-b border-gray-200">
-                  <h3 className="text-lg font-medium text-gray-900">Course Videos</h3>
+                  <h3 className="text-xl font-semibold text-gray-900">Course Videos</h3>
                 </div>
-                <div className="max-h-96 overflow-y-auto">
+                <div className="max-h-96 overflow-y-auto custom-scrollbar">
                   {course.videos?.map((video, index) => (
-                    <div key={video.id} className="border-b border-gray-200 last:border-b-0">
+                    <div key={video.id} className="border-b border-gray-100 last:border-b-0">
                       <div
                         onClick={() => {
                           setActiveVideo(video);
                           setExpandedVideo(null);
-                          setVideoError(null);
-                          setVideoUrl(null); // Reset video URL when switching videos
+                          setIsTranscriptExpanded(false);
                         }}
                         className={`w-full text-left p-4 hover:bg-gray-50 transition-colors cursor-pointer ${
-                          activeVideo?.id === video.id ? 'bg-blue-50 border-l-4 border-l-blue-600' : ''
+                          activeVideo?.id === video.id ? 'bg-gray-100 border-l-4 border-l-black' : ''
                         }`}
                       >
                         <div className="flex items-start space-x-3">
-                          <div className="shrink-0 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-sm font-medium text-gray-600">
+                          <div className="shrink-0 w-6 h-6 bg-black rounded-full flex items-center justify-center text-xs font-bold text-white mt-0.5">
                             {index + 1}
                           </div>
                           <div className="flex-1 min-w-0">
@@ -442,14 +459,12 @@ export default function InstructorCourseDetailPage() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleDeleteVideo(video.id);
+                                  handleDeleteVideo(video.id, video.title);
                                 }}
-                                className="ml-2 text-red-500 hover:text-red-700 transition-colors"
+                                className="ml-2 text-red-500 hover:text-red-700 transition-colors p-1 rounded-full hover:bg-red-100"
                                 title="Delete video"
                               >
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
+                                <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
                             <div className="flex items-center space-x-2 text-xs text-gray-500 mt-1">
@@ -460,35 +475,12 @@ export default function InstructorCourseDetailPage() {
                           </div>
                         </div>
                       </div>
-
-                      {/* Expandable Summary Preview */}
-                      {video.status === 'completed' && (
-                        <div className="px-4 pb-4 ml-11">
-                          <button
-                            onClick={() => toggleVideoExpansion(video.id)}
-                            className="text-sm text-blue-600 hover:text-blue-500 flex items-center"
-                          >
-                            {expandedVideo === video.id ? 'Hide' : 'Show'} AI Summary
-                            <span className={`ml-1 transform transition-transform ${
-                              expandedVideo === video.id ? 'rotate-180' : ''
-                            }`}>
-                              ▼
-                            </span>
-                          </button>
-
-                          {expandedVideo === video.id && (
-                            <div className="mt-2 p-3 bg-gray-50 rounded text-sm text-gray-700">
-                              {video.editedSummary || video.summary}
-                            </div>
-                          )}
-                        </div>
-                      )}
                     </div>
                   ))}
 
                   {!course.videos?.length && (
                     <div className="p-4 text-center text-gray-500 text-sm">
-                      No videos available yet
+                      No videos available yet. Upload one from the Instructor Hub.
                     </div>
                   )}
                 </div>
@@ -496,15 +488,15 @@ export default function InstructorCourseDetailPage() {
 
               {/* Materials List */}
               {course.materials && course.materials.length > 0 && (
-                <div className="bg-white rounded-lg shadow">
+                <div className="bg-white rounded-xl shadow-lg border border-gray-200">
                   <div className="p-4 border-b border-gray-200">
-                    <h3 className="text-lg font-medium text-gray-900">Course Materials</h3>
+                    <h3 className="text-xl font-semibold text-gray-900">Course Materials</h3>
                   </div>
-                  <div className="max-h-64 overflow-y-auto">
+                  <div className="max-h-64 overflow-y-auto custom-scrollbar">
                     {course.materials.map((material) => (
                       <div
                         key={material.id}
-                        className="flex items-center p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors last:border-b-0"
+                        className="flex items-center p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors last:border-b-0"
                       >
                         <a
                           href={`http://localhost:5000/uploads/materials/${material.filename}`}
@@ -513,7 +505,7 @@ export default function InstructorCourseDetailPage() {
                           className="flex items-center flex-1 min-w-0"
                         >
                           <div className="shrink-0 w-8 h-8 bg-gray-100 rounded flex items-center justify-center text-sm text-gray-600">
-                            {(material.fileType && material.fileType.toLowerCase().includes('pdf')) ? '📄' : '📝'}
+                            <FileText className="w-4 h-4" />
                           </div>
                           <div className="ml-3 flex-1 min-w-0">
                             <h4 className="text-sm font-medium text-gray-900 truncate">
@@ -525,13 +517,11 @@ export default function InstructorCourseDetailPage() {
                           </div>
                         </a>
                         <button
-                          onClick={() => handleDeleteMaterial(material.id)}
-                          className="ml-2 text-red-500 hover:text-red-700 transition-colors"
+                          onClick={() => handleDeleteMaterial(material.id, material.title)}
+                          className="ml-2 text-red-500 hover:text-red-700 transition-colors p-1 rounded-full hover:bg-red-100 shrink-0"
                           title="Delete material"
                         >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     ))}

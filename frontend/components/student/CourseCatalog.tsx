@@ -3,6 +3,9 @@
 import { useState, useEffect } from 'react';
 import { studentAPI, coursesAPI } from '../../lib/api';
 import { Course } from '../../types';
+import { Search, Filter, Users, DollarSign, BookOpen, Loader2 } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { useToast } from '../../lib/useToast';
 
 export default function CourseCatalog() {
   const [courses, setCourses] = useState<Course[]>([]);
@@ -10,6 +13,8 @@ export default function CourseCatalog() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [isEnrolling, setIsEnrolling] = useState<string | null>(null);
+  const { showSuccess, showError } = useToast();
 
   useEffect(() => {
     fetchCourses();
@@ -22,6 +27,7 @@ export default function CourseCatalog() {
       setCourses(response.data.courses);
     } catch (error) {
       console.error('Error fetching courses:', error);
+      showError('Failed to load course catalog.');
     } finally {
       setLoading(false);
     }
@@ -38,16 +44,19 @@ export default function CourseCatalog() {
   };
 
   const handleEnroll = async (courseId: string) => {
+    setIsEnrolling(courseId);
     try {
       await studentAPI.enrollCourse(courseId);
       setEnrolledCourses(prev => [...prev, courseId]);
-      alert('Successfully enrolled in the course!');
+      showSuccess('Successfully enrolled in the course!');
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to enroll in course');
+      showError(error.response?.data?.error || 'Failed to enroll in course');
+    } finally {
+      setIsEnrolling(null);
     }
   };
 
-  const categories = Array.from(new Set(courses.map(course => course.category)));
+  const categories = Array.from(new Set(courses.map(course => course.category))).filter(Boolean);
 
   const filteredCourses = courses.filter(course => {
     const matchesSearch = course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -58,33 +67,34 @@ export default function CourseCatalog() {
 
   if (loading) {
     return (
-      <div className="bg-white shadow rounded-lg p-6">
-        <div className="loading-spinner mx-auto"></div>
+      <div className="bg-white shadow rounded-xl p-6 flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 text-black animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Filters */}
-      <div className="bg-white shadow rounded-lg p-6">
+      <div className="bg-white shadow-lg rounded-xl p-6 border border-gray-200">
+        <h3 className="text-xl font-semibold text-gray-900 mb-4">Course Filters</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Search Courses</label>
+          <div className="relative">
+            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search by title or description..."
-              className="block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              className="pl-9 pr-4 block w-full border border-gray-300 rounded-lg py-2 focus:outline-none focus:ring-black focus:border-black transition-shadow"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Category</label>
+          <div className="relative">
+            <Filter className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none" />
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              className="pl-9 pr-4 block w-full border border-gray-300 rounded-lg py-2 focus:outline-none focus:ring-black focus:border-black bg-white transition-shadow"
             >
               <option value="">All Categories</option>
               {categories.map(category => (
@@ -92,78 +102,107 @@ export default function CourseCatalog() {
               ))}
             </select>
           </div>
-          <div className="flex items-end">
-            <div className="text-sm text-gray-500">
-              Showing {filteredCourses.length} of {courses.length} courses
-            </div>
+          <div className="flex items-center text-sm text-gray-600 md:justify-end">
+            Showing <span className="font-bold text-black mx-1">{filteredCourses.length}</span> of <span className="font-bold text-black mx-1">{courses.length}</span> available courses
           </div>
         </div>
       </div>
 
       {/* Courses Grid */}
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-6">Available Courses</h3>
+      <div className="bg-white shadow-lg rounded-xl border border-gray-200">
+        <div className="px-6 py-5 sm:p-6">
+          <h3 className="text-xl font-semibold text-gray-900 mb-6">Course Catalog</h3>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredCourses.map((course) => (
-              <div key={course.id} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-                {course.thumbnailUrl ? (
-                  <img
-                    src={course.thumbnailUrl}
-                    alt={course.title}
-                    className="w-full h-48 object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-48 bg-gray-200 flex items-center justify-center">
-                    <span className="text-gray-400">No thumbnail</span>
-                  </div>
-                )}
-                <div className="p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-medium text-gray-900 flex-1">{course.title}</h4>
-                    <span className="text-sm font-medium text-green-600 ml-2">
-                      {course.price === 0 ? 'Free' : `$${course.price}`}
-                    </span>
-                  </div>
-                  
-                  <p className="text-sm text-gray-600 mb-3 line-clamp-2">{course.description}</p>
-                  
-                  <div className="flex justify-between items-center text-sm text-gray-500 mb-3">
-                    <span>{course.category}</span>
-                    <span>{course.enrollmentCount} students</span>
-                  </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {filteredCourses.map((course) => {
+              const isEnrolled = enrolledCourses.includes(course.id);
+              const enrolling = isEnrolling === course.id;
 
-                  <div className="flex items-center text-sm text-gray-500 mb-4">
-                    <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center mr-2">
-                      <span className="text-xs font-medium">
-                        {course.instructor.name.charAt(0).toUpperCase()}
+              return (
+                <motion.div
+                  key={course.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4 }}
+                  whileHover={{ y: -4, boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)" }}
+                  className="border border-gray-200 rounded-xl overflow-hidden shadow-md transition-shadow bg-white"
+                >
+                  {course.thumbnailUrl ? (
+                    <img
+                      src={course.thumbnailUrl}
+                      alt={course.title}
+                      className="w-full h-48 object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-48 bg-gray-200 flex items-center justify-center">
+                      <BookOpen className="w-12 h-12 text-gray-400" />
+                    </div>
+                  )}
+                  <div className="p-5">
+                    <div className="flex justify-between items-start mb-2">
+                      <h4 className="text-lg font-semibold text-gray-900 flex-1 line-clamp-2">{course.title}</h4>
+                      <span className="text-sm font-bold text-black ml-2 shrink-0">
+                        {course.price === 0 ? 'Free' : `$${course.price}`}
                       </span>
                     </div>
-                    <span>{course.instructor.name}</span>
-                  </div>
+                    
+                    <p className="text-sm text-gray-600 mb-4 line-clamp-3">{course.description}</p>
+                    
+                    <div className="flex justify-between items-center text-xs text-gray-500 mb-4 border-t border-b py-3">
+                      <span className="flex items-center capitalize">
+                        <BookOpen className="w-3 h-3 mr-1" />
+                        {course.category}
+                      </span>
+                      <span className="flex items-center">
+                        <Users className="w-3 h-3 mr-1" />
+                        {course.enrollmentCount} students
+                      </span>
+                      <span className="flex items-center">
+                        <DollarSign className="w-3 h-3 mr-1" />
+                        {course.price === 0 ? 'Free' : 'Paid'}
+                      </span>
+                    </div>
 
-                  <button
-                    onClick={() => handleEnroll(course.id)}
-                    disabled={enrolledCourses.includes(course.id)}
-                    className={`w-full py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                      enrolledCourses.includes(course.id)
-                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        : 'bg-blue-600 text-white hover:bg-blue-700'
-                    }`}
-                  >
-                    {enrolledCourses.includes(course.id) ? 'Already Enrolled' : 'Enroll Now'}
-                  </button>
-                </div>
-              </div>
-            ))}
+                    <div className="flex items-center text-sm text-gray-500 mb-4">
+                      <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center mr-2">
+                        <span className="text-xs font-medium text-gray-700">
+                          {course.instructor.name.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                      <span className="font-medium text-gray-700">{course.instructor.name}</span>
+                    </div>
+
+                    <button
+                      onClick={() => handleEnroll(course.id)}
+                      disabled={isEnrolled || enrolling}
+                      className={`w-full py-2.5 px-4 rounded-lg text-sm font-medium transition-colors shadow-md flex items-center justify-center space-x-2 ${
+                        isEnrolled
+                          ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                          : 'bg-black text-white hover:bg-gray-800'
+                      }`}
+                    >
+                      {enrolling ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Enrolling...</span>
+                        </>
+                      ) : isEnrolled ? (
+                        'Already Enrolled'
+                      ) : (
+                        'Enroll Now'
+                      )}
+                    </button>
+                  </div>
+                </motion.div>
+              );
+            })}
           </div>
 
           {filteredCourses.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-16 text-gray-500">
               <div className="text-6xl mb-4">🔍</div>
-              <p>No courses found matching your criteria.</p>
-              <p className="text-sm">Try adjusting your search or filters.</p>
+              <p className="text-xl font-medium">No courses found matching your criteria.</p>
+              <p className="text-sm mt-2">Try adjusting your search or filters.</p>
             </div>
           )}
         </div>

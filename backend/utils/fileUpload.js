@@ -100,4 +100,33 @@ export class FileUpload {
     if (error) throw error;
     return data.signedUrl;
   }
+
+  static async uploadAvatar(file, userId) {
+    const fileExt = file.originalname.split('.').pop();
+    const fileName = `avatar-${userId}-${Date.now()}.${fileExt}`;
+    const filePath = `avatars/${fileName}`;
+
+    const { data, error } = await supabase.storage
+      .from('course-content')
+      .upload(filePath, file.buffer, {
+        contentType: file.mimetype,
+        cacheControl: '3600',
+        upsert: true // Allow overwriting existing avatar
+      });
+
+    if (error) throw error;
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('course-content')
+      .getPublicUrl(filePath);
+
+    return {
+      filename: fileName,
+      originalName: file.originalname,
+      fileSize: file.size,
+      fileType: file.mimetype,
+      storagePath: filePath,
+      publicUrl: publicUrl
+    };
+  }
 }

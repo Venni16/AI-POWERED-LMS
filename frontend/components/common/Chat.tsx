@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { ChatMessage, User } from '../../types';
 import { chatAPI } from '../../lib/api';
+import { Send, Loader2 } from 'lucide-react';
+import { format, isToday } from 'date-fns';
 
 interface ChatProps {
   courseId: string;
@@ -86,40 +88,44 @@ export default function Chat({ courseId, currentUser }: ChatProps) {
     }
   };
 
-  const formatTime = (timestamp: string) => {
-    return new Date(timestamp).toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+  const formatTimestamp = (timestamp: string) => {
+    const date = new Date(timestamp);
+    if (isToday(date)) {
+      // Show only time for today's messages
+      return format(date, 'HH:mm');
+    } else {
+      // Show date and time for older messages (e.g., 15 Mar 10:30)
+      return format(date, 'dd MMM HH:mm');
+    }
   };
 
   if (isLoading) {
     return (
-      <div className="bg-white rounded-lg shadow p-4">
-        <div className="text-center text-gray-500">Loading chat...</div>
+      <div className="bg-white rounded-xl shadow-lg p-6 flex items-center justify-center h-96">
+        <Loader2 className="w-6 h-6 text-black animate-spin mr-2" />
+        <span className="text-gray-600">Loading chat...</span>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-lg shadow">
+    <div className="bg-white rounded-xl shadow-lg flex flex-col h-[500px]">
       {/* Chat Header */}
-      <div className="p-4 border-b border-gray-200">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-medium text-gray-900">Course Chat</h3>
-          <div className="flex items-center space-x-2">
-            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-            <span className="text-sm text-gray-500">
-              {isConnected ? 'Connected' : 'Disconnected'}
-            </span>
-          </div>
+      <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900">Course Chat</h3>
+        <div className="flex items-center space-x-2">
+          <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+          <span className="text-sm text-gray-500">
+            {isConnected ? 'Live' : 'Offline'}
+          </span>
         </div>
       </div>
 
       {/* Messages */}
-      <div className="h-96 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
         {messages.length === 0 ? (
           <div className="text-center text-gray-500 py-8">
+            <div className="text-4xl mb-2">👋</div>
             No messages yet. Start the conversation!
           </div>
         ) : (
@@ -129,21 +135,21 @@ export default function Chat({ courseId, currentUser }: ChatProps) {
               className={`flex ${message.sender.id === currentUser.id ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                className={`max-w-xs lg:max-w-md px-4 py-2 rounded-xl shadow-md ${
                   message.sender.id === currentUser.id
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-900'
+                    ? 'bg-black text-white rounded-br-none'
+                    : 'bg-gray-100 text-gray-900 rounded-tl-none'
                 }`}
               >
                 <div className="flex items-center space-x-2 mb-1">
-                  <span className="text-sm font-medium">
+                  <span className={`text-xs font-semibold ${message.sender.id === currentUser.id ? 'text-gray-300' : 'text-black'}`}>
                     {message.sender.id === currentUser.id ? 'You' : message.sender.name}
                   </span>
-                  <span className={`text-xs ${message.sender.id === currentUser.id ? 'text-blue-200' : 'text-gray-500'}`}>
-                    {formatTime(message.created_at)}
+                  <span className={`text-xs ${message.sender.id === currentUser.id ? 'text-gray-400' : 'text-gray-500'}`}>
+                    {formatTimestamp(message.created_at)}
                   </span>
                 </div>
-                <p className="text-sm">{message.message}</p>
+                <p className="text-sm leading-relaxed">{message.message}</p>
               </div>
             </div>
           ))
@@ -153,22 +159,22 @@ export default function Chat({ courseId, currentUser }: ChatProps) {
 
       {/* Message Input */}
       <div className="p-4 border-t border-gray-200">
-        <form onSubmit={sendMessage} className="flex space-x-2">
+        <form onSubmit={sendMessage} className="flex space-x-3">
           <input
             type="text"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder={isConnected ? "Type a message..." : "Connecting..."}
             disabled={!isConnected}
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent disabled:bg-gray-100 transition-shadow"
             maxLength={500}
           />
           <button
             type="submit"
             disabled={!newMessage.trim() || !isConnected}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className="shrink-0 w-12 h-12 bg-black text-white rounded-lg flex items-center justify-center hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
           >
-            Send
+            <Send className="w-5 h-5" />
           </button>
         </form>
       </div>

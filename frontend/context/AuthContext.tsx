@@ -14,6 +14,9 @@ interface User {
     avatar?: string;
     specialization?: string;
   };
+  isActive?: boolean;
+  createdAt?: string;
+  avatarUrl?: string;
 }
 
 interface AuthResponse {
@@ -28,6 +31,7 @@ interface AuthContextType {
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   loading: boolean;
+  updateProfile: (formData: FormData) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -59,7 +63,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const response = await authAPI.login(email, password);
       const { token, user } = response.data;
-      
+
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
       setUser(user);
@@ -72,12 +76,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const response = await authAPI.register(name, email, password);
       const { token, user } = response.data;
-      
+
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
       setUser(user);
     } catch (error: any) {
       throw new Error(error.response?.data?.error || 'Registration failed');
+    }
+  };
+
+  const updateProfile = async (formData: FormData) => {
+    try {
+      const response = await authAPI.updateProfile(formData);
+      const updatedUser = response.data.user;
+
+      // Update local storage and state
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error || 'Profile update failed');
     }
   };
 
@@ -89,7 +106,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, register, logout, loading, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

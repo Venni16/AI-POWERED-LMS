@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 
 interface Vector2D {
   x: number
@@ -143,18 +143,54 @@ const DEFAULT_WORDS = ["AI-Powered", "Learning", "Management", "System"]
 
 export function ParticleTextEffect({ words = DEFAULT_WORDS, className = "" }: ParticleTextEffectProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const animationRef = useRef<number | undefined>(undefined)
   const particlesRef = useRef<Particle[]>([])
   const frameCountRef = useRef(0)
   const wordIndexRef = useRef(0)
   const mouseRef = useRef({ x: 0, y: 0, isPressed: false, isRightClick: false })
+  const [dimensions, setDimensions] = useState({ width: 1000, height: 300, fontSize: 80 })
 
   const pixelSteps = 6
   const drawAsPoints = true
 
+  const resizeCanvas = () => {
+    const container = containerRef.current
+    const canvas = canvasRef.current
+    if (!container || !canvas) return
+
+    const containerWidth = container.clientWidth
+    let newWidth = 1000
+    let newHeight = 300
+    let newFontSize = 80
+
+    if (containerWidth < 600) {
+      newWidth = containerWidth
+      newHeight = Math.min(containerWidth * 0.4, 200)
+      newFontSize = Math.max(30, containerWidth / 10)
+    } else if (containerWidth < 1000) {
+      newWidth = containerWidth
+      newHeight = Math.min(containerWidth * 0.3, 300)
+      newFontSize = Math.max(50, containerWidth / 12)
+    } else {
+      newWidth = 1000
+      newHeight = 300
+      newFontSize = 80
+    }
+
+    canvas.width = newWidth
+    canvas.height = newHeight
+    setDimensions({ width: newWidth, height: newHeight, fontSize: newFontSize })
+    
+    // Re-render the current word immediately after resize
+    if (words.length > 0) {
+        nextWord(words[wordIndexRef.current], canvas, newFontSize);
+    }
+  }
+
   const generateRandomPos = (x: number, y: number, mag: number): Vector2D => {
-    const randomX = Math.random() * 1000
-    const randomY = Math.random() * 300
+    const randomX = Math.random() * dimensions.width
+    const randomY = Math.random() * dimensions.height
 
     const direction = {
       x: randomX - x,
@@ -173,7 +209,7 @@ export function ParticleTextEffect({ words = DEFAULT_WORDS, className = "" }: Pa
     }
   }
 
-  const nextWord = (word: string, canvas: HTMLCanvasElement) => {
+  const nextWord = (word: string, canvas: HTMLCanvasElement, fontSize: number) => {
     // Create off-screen canvas for text rendering
     const offscreenCanvas = document.createElement("canvas")
     offscreenCanvas.width = canvas.width
@@ -181,8 +217,8 @@ export function ParticleTextEffect({ words = DEFAULT_WORDS, className = "" }: Pa
     const offscreenCtx = offscreenCanvas.getContext("2d")!
 
     // Draw text
-    offscreenCtx.fillStyle = "white"
-    offscreenCtx.font = "bold 80px Arial"
+    offscreenCtx.fillStyle = "black"
+    offscreenCtx.font = `bold ${fontSize}px Arial`
     offscreenCtx.textAlign = "center"
     offscreenCtx.textBaseline = "middle"
     offscreenCtx.fillText(word, canvas.width / 2, canvas.height / 2)
@@ -191,10 +227,11 @@ export function ParticleTextEffect({ words = DEFAULT_WORDS, className = "" }: Pa
     const pixels = imageData.data
 
     // Generate new color
+    const gray = Math.random() * 100; // 0 to 100 for dark grays
     const newColor = {
-      r: Math.random() * 255,
-      g: Math.random() * 255,
-      b: Math.random() * 255,
+      r: gray,
+      g: gray,
+      b: gray,
     }
 
     const particles = particlesRef.current
@@ -307,7 +344,7 @@ export function ParticleTextEffect({ words = DEFAULT_WORDS, className = "" }: Pa
     frameCountRef.current++
     if (frameCountRef.current % 240 === 0) {
       wordIndexRef.current = (wordIndexRef.current + 1) % words.length
-      nextWord(words[wordIndexRef.current], canvas)
+      nextWord(words[wordIndexRef.current], canvas, dimensions.fontSize)
     }
 
     animationRef.current = requestAnimationFrame(animate)
@@ -317,14 +354,14 @@ export function ParticleTextEffect({ words = DEFAULT_WORDS, className = "" }: Pa
     const canvas = canvasRef.current
     if (!canvas) return
 
-    canvas.width = 1000
-    canvas.height = 300
-
-    // Initialize with first word
-    nextWord(words[0], canvas)
+    // Initial resize
+    resizeCanvas();
 
     // Start animation
     animate()
+
+    // Setup resize listener
+    window.addEventListener('resize', resizeCanvas);
 
     // Mouse event handlers
     const handleMouseDown = (e: MouseEvent) => {
@@ -359,15 +396,16 @@ export function ParticleTextEffect({ words = DEFAULT_WORDS, className = "" }: Pa
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current)
       }
+      window.removeEventListener('resize', resizeCanvas);
       canvas.removeEventListener("mousedown", handleMouseDown)
       canvas.removeEventListener("mouseup", handleMouseUp)
       canvas.removeEventListener("mousemove", handleMouseMove)
       canvas.removeEventListener("contextmenu", handleContextMenu)
     }
-  }, [words])
+  }, [words, dimensions.fontSize]) // Re-run effect when font size changes
 
   return (
-    <div className={className}>
+    <div ref={containerRef} className={className}>
       <canvas
         ref={canvasRef}
         className="w-full h-auto"

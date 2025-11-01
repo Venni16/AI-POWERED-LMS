@@ -10,6 +10,10 @@ import { Video } from '../models/Video.js';
 import { Material } from '../models/Material.js';
 import { User } from '../models/User.js';
 import { Mcq } from '../models/Mcq.js';
+import { Enrollment } from '../models/Enrollment.js';
+import { StudentVideoProgress } from '../models/StudentVideoProgress.js';
+import { QuizAttempt } from '../models/QuizAttempt.js';
+import { Achievement } from '../models/Achievement.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -226,7 +230,7 @@ router.post('/courses', async (req, res) => {
           description: course.description,
           category: course.category,
           price: course.price,
-          thumbnail: course.thumbnail_url,
+          thumbnailUrl: course.thumbnail_url,
           instructor: req.user.id,
           isPublished: false, // New courses start as drafts
           enrollmentCount: course.enrollment_count,
@@ -258,7 +262,7 @@ router.get('/courses/:courseId', async (req, res) => {
       description: course.description,
       category: course.category,
       price: course.price,
-      thumbnail: course.thumbnail_url,
+      thumbnailUrl: course.thumbnail_url,
       isPublished: course.is_published,
       enrollmentCount: course.enrollments?.length || 0,
       createdAt: course.created_at,
@@ -410,7 +414,7 @@ router.get('/courses/:courseId/students', async (req, res) => {
       .from('enrollments')
       .select(`
         enrolled_at,
-        student:users(id, name, email, avatar_url)
+        student:users(id, name, email, avatar_url, bio, specialization)
       `)
       .eq('course_id', req.params.courseId);
 
@@ -730,11 +734,69 @@ router.delete('/courses/:courseId', async (req, res) => {
         return res.status(404).json({ error: 'Course not found' });
       }
 
-      // Check if course has enrolled students
+      // Automatically unenroll all students from the course
       if (course.enrollments && course.enrollments.length > 0) {
-        return res.status(400).json({
-          error: 'Cannot delete course with enrolled students. Please unenroll all students first.'
-        });
+        try {
+          const enrollments = await Enrollment.findByCourse(course.id);
+          for (const enrollment of enrollments) {
+            await Enrollment.delete(enrollment.student_id, course.id);
+          }
+          console.log(`Unenrolled ${enrollments.length} students from course ${course.id}`);
+        } catch (enrollmentError) {
+          console.error(`Error unenrolling students from course ${course.id}:`, enrollmentError);
+          // Continue with deletion even if unenrollment fails
+        }
+      }
+
+      // Delete all student video progress records for this course
+      try {
+        const { supabase } = await import('../lib/supabase.js');
+        const { error: progressError } = await supabase
+          .from('student_video_progress')
+          .delete()
+          .eq('course_id', course.id);
+
+        if (progressError) {
+          console.error(`Error deleting student video progress for course ${course.id}:`, progressError);
+        } else {
+          console.log(`Deleted student video progress records for course ${course.id}`);
+        }
+      } catch (progressError) {
+        console.error(`Error deleting student video progress for course ${course.id}:`, progressError);
+      }
+
+      // Delete all quiz attempts for this course
+      try {
+        const { supabase } = await import('../lib/supabase.js');
+        const { error: quizError } = await supabase
+          .from('quiz_attempt')
+          .delete()
+          .eq('course_id', course.id);
+
+        if (quizError) {
+          console.error(`Error deleting quiz attempts for course ${course.id}:`, quizError);
+        } else {
+          console.log(`Deleted quiz attempts for course ${course.id}`);
+        }
+      } catch (quizError) {
+        console.error(`Error deleting quiz attempts for course ${course.id}:`, quizError);
+      }
+
+      // Delete all achievements for this course
+      try {
+        const { supabase } = await import('../lib/supabase.js');
+        const { error: achievementError } = await supabase
+          .from('achievement')
+          .delete()
+          .eq('course_id', course.id);
+
+        if (achievementError) {
+          console.error(`Error deleting achievements for course ${course.id}:`, achievementError);
+        } else {
+          console.log(`Deleted achievements for course ${course.id}`);
+        }
+      } catch (achievementError) {
+        console.error(`Error deleting achievements for course ${course.id}:`, achievementError);
       }
 
       // Delete all videos and their files

@@ -124,4 +124,16 @@ export class User {
     if (error) throw error;
     return data;
   }
+
+  static async delete(id) {
+    const { data, error } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
 }

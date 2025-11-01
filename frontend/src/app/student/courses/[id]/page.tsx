@@ -6,8 +6,10 @@ import ProtectedRoute from '../../../../../components/common/ProtectedRoute';
 import VideoPlayer from '../../../../../components/common/VideoPlayer';
 import Chat from '../../../../../components/common/Chat';
 import McqQuiz from '../../../../../components/student/McqQuiz';
-import { studentAPI, videoAPI } from '../../../../../lib/api';
+import { studentAPI } from '../../../../../lib/api';
 import { Course, Video, User, Mcq } from '../../../../../types';
+import { BookOpen, Video as VideoIcon, FileText, MessageSquare, HelpCircle, Loader2, ChevronDown, ChevronUp, CheckCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function CourseDetailPage() {
   const router = useRouter();
@@ -19,8 +21,6 @@ export default function CourseDetailPage() {
   const [activeVideo, setActiveVideo] = useState<Video | null>(null);
   const [expandedVideo, setExpandedVideo] = useState<string | null>(null);
   const [isTranscriptExpanded, setIsTranscriptExpanded] = useState(false);
-  const [videoError, setVideoError] = useState<string | null>(null);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [showQuiz, setShowQuiz] = useState(false);
 
@@ -33,7 +33,7 @@ export default function CourseDetailPage() {
     }
   }, [courseId]);
 
-  const fetchCurrentUser = async () => {
+  const fetchCurrentUser = () => {
     try {
       const userData = localStorage.getItem('user');
       if (userData) {
@@ -47,10 +47,13 @@ export default function CourseDetailPage() {
   const fetchCourseDetails = async () => {
     try {
       const response = await studentAPI.getCourseDetails(courseId as string);
-      setCourse(response.data.course);
-      if (response.data.course.videos?.length > 0) {
-        setActiveVideo(response.data.course.videos[0]);
-      }
+      const fetchedCourse = response.data.course;
+      setCourse(fetchedCourse);
+      
+      // Set active video: prioritize the first unwatched video, otherwise the first video
+      const firstUnwatched = fetchedCourse.videos?.find((v: Video) => !v.studentProgress?.completed);
+      setActiveVideo(firstUnwatched || fetchedCourse.videos?.[0] || null);
+
     } catch (error: any) {
       console.error('Error fetching course details:', error);
       if (error.response?.status === 400) {
@@ -65,41 +68,23 @@ export default function CourseDetailPage() {
     setExpandedVideo(expandedVideo === videoId ? null : videoId);
   };
 
-  const fetchVideoUrl = async (videoId: string) => {
-    try {
-      // Get public URL directly
-      const response = await fetch(`http://localhost:5000/api/video/${videoId}/public-url`);
-      const data = await response.json();
-      if (data.success) {
-        setVideoUrl(data.url);
-        return data.url;
-      }
-    } catch (error) {
-      console.error('Failed to fetch video URL:', error);
-    }
-    return null;
-  };
-
-  const handleVideoError = (e: React.SyntheticEvent<HTMLVideoElement, Event>, video: Video) => {
-    const videoElement = e.target as HTMLVideoElement;
-    const error = videoElement.error;
-    console.error('Video loading error:', error || 'Unknown error');
-    setVideoError(`Failed to load video: ${video.title}`);
-
-    // Try alternative sources
-    const sources = [
-      `http://localhost:5000/api/video/${video.id}/stream`,
-      `http://localhost:5000/uploads/videos/${video.filename}`,
-      courseId ? `http://localhost:5000/api/courses/${courseId as string}/videos/${video.id}/file` : null
-    ].filter(Boolean);
-
-    let currentSourceIndex = sources.findIndex(src => src === videoElement.src);
-    let nextSourceIndex = (currentSourceIndex + 1) % sources.length;
-
-    if (nextSourceIndex > 0 && sources[nextSourceIndex]) {
-      console.log(`Trying alternative video source: ${sources[nextSourceIndex]}`);
-      videoElement.src = sources[nextSourceIndex];
-    }
+  const handleVideoComplete = (videoId: string) => {
+    // Optimistically update UI
+    setCourse(prevCourse => {
+      if (!prevCourse) return null;
+      const updatedVideos = prevCourse.videos?.map(v => {
+        if (v.id === videoId) {
+          return {
+            ...v,
+            studentProgress: { completed: true, completedAt: new Date().toISOString() }
+          };
+        }
+        return v;
+      });
+      return { ...prevCourse, videos: updatedVideos };
+    });
+    // Fetch full details to ensure progress is updated correctly
+    fetchCourseDetails();
   };
 
   if (loading) {
@@ -116,7 +101,7 @@ export default function CourseDetailPage() {
     return (
       <ProtectedRoute allowedRoles={['student']}>
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <div className="text-center">
+          <div className="text-center bg-white p-8 rounded-xl shadow-lg">
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Course Not Found</h1>
             <p className="text-gray-600">The course you're looking for doesn't exist or you don't have access.</p>
           </div>
@@ -128,40 +113,43 @@ export default function CourseDetailPage() {
   return (
     <ProtectedRoute allowedRoles={['student']}>
       <div className="min-h-screen bg-gray-50">
-        <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto py-10 sm:px-6 lg:px-8">
           {/* Course Header */}
-          <div className="px-4 py-6 sm:px-0">
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center justify-between mb-4">
-                <button
-                  onClick={() => router.back()}
-                  className="flex items-center text-blue-600 hover:text-blue-500 transition-colors"
-                >
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                  Back to Courses
-                </button>
-              </div>
+          <div className="px-4 sm:px-0 mb-8">
+            <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+              <button
+                onClick={() => router.back()}
+                className="flex items-center text-black hover:underline transition-colors mb-4 text-sm font-medium"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                Back to My Courses
+              </button>
               <div className="flex flex-col md:flex-row md:items-start space-y-4 md:space-y-0 md:space-x-6">
-                {course.thumbnail && (
+                {course.thumbnailUrl && (
                   <img
-                    src={course.thumbnail}
+                    src={course.thumbnailUrl}
                     alt={course.title}
-                    className="w-full md:w-64 h-48 object-cover rounded-lg"
+                    className="w-full md:w-64 h-40 object-cover rounded-lg shadow-md"
                   />
                 )}
                 <div className="flex-1">
                   <h1 className="text-3xl font-bold text-gray-900 mb-2">{course.title}</h1>
                   <p className="text-gray-600 mb-4">{course.description}</p>
-                  <div className="flex flex-wrap gap-2 text-sm text-gray-500">
-                    <span>Instructor: {course.instructor.name}</span>
-                    <span>•</span>
-                    <span>Category: {course.category}</span>
-                    <span>•</span>
-                    <span>{course.videos?.length || 0} videos</span>
-                    <span>•</span>
-                    <span>{course.materials?.length || 0} materials</span>
+                  <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-gray-500">
+                    <span className="flex items-center">
+                      <BookOpen className="w-4 h-4 mr-1" />
+                      {course.category}
+                    </span>
+                    <span className="flex items-center">
+                      <VideoIcon className="w-4 h-4 mr-1" />
+                      {course.videos?.length || 0} videos
+                    </span>
+                    <span className="flex items-center">
+                      <FileText className="w-4 h-4 mr-1" />
+                      {course.materials?.length || 0} materials
+                    </span>
                   </div>
                 </div>
               </div>
@@ -169,63 +157,48 @@ export default function CourseDetailPage() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 px-4 sm:px-0">
-            {/* Video Player */}
-            <div className="lg:col-span-2">
-              <div className="bg-white rounded-lg shadow">
+            {/* Main Content (Video Player & Summary) */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Video Player */}
+              <div className="bg-white rounded-xl shadow-lg border border-gray-200">
                 <div className="p-4 border-b border-gray-200">
-                  <h2 className="text-lg font-medium text-gray-900">
+                  <h2 className="text-xl font-semibold text-gray-900">
                     {activeVideo ? activeVideo.title : 'Select a video to start learning'}
                   </h2>
                 </div>
                 <div className="p-4">
                   {activeVideo ? (
                     <div className="space-y-4">
-                      {/* Video Player with Error Handling */}
-                      <div className="bg-black rounded-lg overflow-hidden">
-                        {videoError && (
-                          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-                            <div className="flex items-center">
-                              <div className="text-red-600 text-lg mr-2">❌</div>
-                              <div>
-                                <p className="text-red-800 font-medium">Video Error</p>
-                                <p className="text-red-600 text-sm">{videoError}</p>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        
                       <VideoPlayer
                         videoId={activeVideo.id}
                         courseId={courseId as string}
-                        onVideoComplete={(videoId) => {
-                          console.log('Video completed:', videoId);
-                          // Optionally refresh course data or show notification
-                        }}
+                        onVideoComplete={handleVideoComplete}
                       />
-                      </div>
                       
-                      {/* Video Info */}
-                      <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
-                        <div>
-                          <span className="font-medium">Status:</span>{' '}
-                          <span className={`${
+                      {/* Video Status */}
+                      <div className="flex items-center space-x-4 text-sm text-gray-600">
+                        <div className="flex items-center">
+                          <span className="font-medium mr-2">Processing Status:</span>
+                          <span className={`font-semibold ${
                             activeVideo.status === 'completed' ? 'text-green-600' :
                             activeVideo.status === 'processing' ? 'text-yellow-600' :
                             'text-red-600'
                           }`}>
-                            {activeVideo.status}
+                            {activeVideo.status.toUpperCase()}
                           </span>
                         </div>
-                        <div>
-                          <span className="font-medium">Uploaded:</span>{' '}
-                          {new Date(activeVideo.uploadDate).toLocaleDateString()}
-                        </div>
+                        {activeVideo.studentProgress?.completed && (
+                          <div className="flex items-center text-green-600 font-semibold">
+                            <CheckCircle className="w-4 h-4 mr-1" />
+                            Completed
+                          </div>
+                        )}
                       </div>
                     </div>
                   ) : (
                     <div className="text-center py-12 text-gray-500">
                       <div className="text-6xl mb-4">🎬</div>
-                      <p>Select a video from the list to start watching</p>
+                      <p>No videos available in this course yet.</p>
                     </div>
                   )}
                 </div>
@@ -233,14 +206,15 @@ export default function CourseDetailPage() {
 
               {/* AI Summary Section */}
               {activeVideo && activeVideo.status === 'completed' && (
-                <div className="bg-white rounded-lg shadow mt-6">
+                <div className="bg-white rounded-xl shadow-lg border border-gray-200">
                   <div className="p-4 border-b border-gray-200">
-                    <h3 className="text-lg font-medium text-gray-900">AI Summary</h3>
+                    <h3 className="text-xl font-semibold text-gray-900">AI Summary & Transcript</h3>
                   </div>
-                  <div className="p-4">
-                    <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+                  <div className="p-6">
+                    <h4 className="text-lg font-medium text-gray-800 mb-3">Summary</h4>
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                       <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">
-                        {activeVideo.editedSummary || activeVideo.summary}
+                        {activeVideo.editedSummary || activeVideo.summary || 'No summary available.'}
                       </p>
                     </div>
                     
@@ -249,20 +223,30 @@ export default function CourseDetailPage() {
                       <div className="mt-6">
                         <button
                           onClick={() => setIsTranscriptExpanded(!isTranscriptExpanded)}
-                          className="flex items-center text-blue-600 hover:text-blue-500 transition-colors mb-3"
+                          className="flex items-center text-black hover:underline transition-colors mb-3 font-medium"
                         >
-                          <span className="font-medium text-gray-900 mr-2">Full Transcript</span>
-                          <span className={`transform transition-transform ${isTranscriptExpanded ? 'rotate-180' : ''}`}>
-                            ▼
-                          </span>
+                          Full Transcript
+                          {isTranscriptExpanded ? (
+                            <ChevronUp className="w-4 h-4 ml-2" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 ml-2" />
+                          )}
                         </button>
-                        {isTranscriptExpanded && (
-                          <div className="bg-gray-50 p-4 rounded-lg max-h-64 overflow-y-auto">
-                            <p className="text-gray-700 whitespace-pre-wrap text-sm leading-relaxed">
-                              {activeVideo.transcript}
-                            </p>
-                          </div>
-                        )}
+                        <AnimatePresence>
+                          {isTranscriptExpanded && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              exit={{ opacity: 0, height: 0 }}
+                              transition={{ duration: 0.3 }}
+                              className="bg-gray-50 p-4 rounded-lg max-h-64 overflow-y-auto border border-gray-200"
+                            >
+                              <p className="text-gray-700 whitespace-pre-wrap text-sm leading-relaxed">
+                                {activeVideo.transcript}
+                              </p>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </div>
                     )}
                   </div>
@@ -270,67 +254,45 @@ export default function CourseDetailPage() {
               )}
             </div>
 
-            {/* Course Content Sidebar */}
+            {/* Sidebar (Content & Tools) */}
             <div className="space-y-6">
               {/* Videos List */}
-              <div className="bg-white rounded-lg shadow">
+              <div className="bg-white rounded-xl shadow-lg border border-gray-200">
                 <div className="p-4 border-b border-gray-200">
-                  <h3 className="text-lg font-medium text-gray-900">Course Videos</h3>
+                  <h3 className="text-xl font-semibold text-gray-900">Course Content</h3>
                 </div>
-                <div className="max-h-96 overflow-y-auto">
+                <div className="max-h-96 overflow-y-auto custom-scrollbar">
                   {course.videos?.map((video, index) => (
-                    <div key={video.id} className="border-b border-gray-200 last:border-b-0">
-                      <button
-                        onClick={() => {
-                          setActiveVideo(video);
-                          setExpandedVideo(null);
-                          setVideoError(null);
-                          setVideoUrl(null); // Reset video URL when switching videos
-                        }}
-                        className={`w-full text-left p-4 hover:bg-gray-50 transition-colors ${
-                          activeVideo?.id === video.id ? 'bg-blue-50 border-l-4 border-l-blue-600' : ''
-                        }`}
-                      >
-                        <div className="flex items-start space-x-3">
-                          <div className="shrink-0 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-sm font-medium text-gray-600">
-                            {index + 1}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="text-sm font-medium text-gray-900 truncate">
-                              {video.title}
-                            </h4>
-                            <div className="flex items-center space-x-2 text-xs text-gray-500 mt-1">
-                              <span>{video.status}</span>
-                              <span>•</span>
-                              <span>{(video.fileSize / (1024 * 1024)).toFixed(1)} MB</span>
-                            </div>
+                    <button
+                      key={video.id}
+                      onClick={() => {
+                        setActiveVideo(video);
+                        setExpandedVideo(null);
+                        setIsTranscriptExpanded(false);
+                      }}
+                      className={`w-full text-left p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors last:border-b-0 ${
+                        activeVideo?.id === video.id ? 'bg-gray-100 border-l-4 border-l-black' : ''
+                      }`}
+                    >
+                      <div className="flex items-start space-x-3">
+                        <div className="shrink-0 w-6 h-6 bg-black rounded-full flex items-center justify-center text-xs font-bold text-white mt-0.5">
+                          {index + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-medium text-gray-900 truncate">
+                            {video.title}
+                          </h4>
+                          <div className="flex items-center space-x-2 text-xs text-gray-500 mt-1">
+                            {video.studentProgress?.completed && (
+                              <CheckCircle className="w-3 h-3 text-green-600" />
+                            )}
+                            <span>{video.status}</span>
+                            <span>•</span>
+                            <span>{(video.fileSize / (1024 * 1024)).toFixed(1)} MB</span>
                           </div>
                         </div>
-                      </button>
-                      
-                      {/* Expandable Summary Preview */}
-                      {video.status === 'completed' && (
-                        <div className="px-4 pb-4 ml-11">
-                          <button
-                            onClick={() => toggleVideoExpansion(video.id)}
-                            className="text-sm text-blue-600 hover:text-blue-500 flex items-center"
-                          >
-                            {expandedVideo === video.id ? 'Hide' : 'Show'} AI Summary
-                            <span className={`ml-1 transform transition-transform ${
-                              expandedVideo === video.id ? 'rotate-180' : ''
-                            }`}>
-                              ▼
-                            </span>
-                          </button>
-
-                          {expandedVideo === video.id && (
-                            <div className="mt-2 p-3 bg-gray-50 rounded text-sm text-gray-700">
-                              {video.editedSummary || video.summary}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                      </div>
+                    </button>
                   ))}
                   
                   {!course.videos?.length && (
@@ -343,21 +305,21 @@ export default function CourseDetailPage() {
 
               {/* Materials List */}
               {course.materials && course.materials.length > 0 && (
-                <div className="bg-white rounded-lg shadow">
+                <div className="bg-white rounded-xl shadow-lg border border-gray-200">
                   <div className="p-4 border-b border-gray-200">
-                    <h3 className="text-lg font-medium text-gray-900">Course Materials</h3>
+                    <h3 className="text-xl font-semibold text-gray-900">Materials</h3>
                   </div>
-                  <div className="max-h-64 overflow-y-auto">
+                  <div className="max-h-64 overflow-y-auto custom-scrollbar">
                     {course.materials.map((material) => (
                       <a
                         key={material.id}
                         href={`http://localhost:5000/uploads/materials/${material.filename}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors last:border-b-0"
+                        className="flex items-center p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors last:border-b-0"
                       >
                         <div className="shrink-0 w-8 h-8 bg-gray-100 rounded flex items-center justify-center text-sm text-gray-600">
-                          {(material.fileType && material.fileType.toLowerCase().includes('pdf')) ? '📄' : '📝'}
+                          <FileText className="w-4 h-4" />
                         </div>
                         <div className="ml-3 flex-1 min-w-0">
                           <h4 className="text-sm font-medium text-gray-900 truncate">
@@ -374,26 +336,23 @@ export default function CourseDetailPage() {
               )}
 
               {/* MCQs Section */}
-              <div className="bg-white rounded-lg shadow">
+              <div className="bg-white rounded-xl shadow-lg border border-gray-200">
                 <div className="p-4 border-b border-gray-200">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-medium text-gray-900">MCQs</h3>
+                    <h3 className="text-xl font-semibold text-gray-900">Course Quiz</h3>
                     <button
-                      onClick={() => setShowQuiz(!showQuiz)}
-                      className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
+                      onClick={() => setShowQuiz(true)}
+                      className="px-4 py-2 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors flex items-center space-x-1 shadow-md"
                     >
-                      {showQuiz ? 'Hide Quiz' : 'Take Quiz'}
+                      <HelpCircle className="w-4 h-4" />
+                      <span>Take Quiz</span>
                     </button>
                   </div>
                 </div>
                 <div className="p-4">
-                  {showQuiz ? (
-                    <McqQuiz courseId={courseId as string} onClose={() => setShowQuiz(false)} />
-                  ) : (
-                    <p className="text-gray-600 text-sm">
-                      Click "Take Quiz" to start answering MCQs for this course.
-                    </p>
-                  )}
+                  <p className="text-gray-600 text-sm">
+                    Test your knowledge with multiple-choice questions covering the course content.
+                  </p>
                 </div>
               </div>
 
@@ -405,6 +364,13 @@ export default function CourseDetailPage() {
           </div>
         </div>
       </div>
+      
+      {/* Quiz Modal */}
+      <AnimatePresence>
+        {showQuiz && (
+          <McqQuiz courseId={courseId as string} onClose={() => setShowQuiz(false)} />
+        )}
+      </AnimatePresence>
     </ProtectedRoute>
   );
 }

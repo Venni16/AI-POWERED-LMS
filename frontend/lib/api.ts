@@ -32,14 +32,21 @@ api.interceptors.response.use(
 export const authAPI = {
   login: (email: string, password: string) =>
     api.post<AuthResponse>('/auth/login', { email, password }),
-  
+
   register: (name: string, email: string, password: string) =>
     api.post<AuthResponse>('/auth/register', { name, email, password }),
-  
+
   googleLogin: (token: string) =>
     api.post<AuthResponse>('/auth/google', { token }),
-  
+
   getMe: () => api.get<AuthResponse>('/auth/me'),
+
+  updateProfile: (formData: FormData) =>
+    api.put('/auth/profile', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    }),
 };
 
 export const adminAPI = {
@@ -50,6 +57,7 @@ export const adminAPI = {
     api.patch(`/admin/users/${userId}/status`, { isActive }),
   changeInstructorPassword: (userId: string, password: string) =>
     api.patch(`/admin/users/${userId}/password`, { password }),
+  deleteUser: (userId: string) => api.delete(`/admin/users/${userId}`),
   getAuditLogs: (params?: any) => api.get('/admin/audit-logs', { params }),
 };
 

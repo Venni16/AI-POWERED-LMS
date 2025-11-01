@@ -116,7 +116,12 @@ router.get('/users', async (req, res) => {
     const transformedUsers = users.map(user => ({
       ...user,
       isActive: user.is_active,
-      createdAt: user.created_at
+      createdAt: user.created_at,
+      profile: {
+        bio: user.bio,
+        avatar: user.avatar_url,
+        specialization: user.specialization
+      }
     }));
     res.json({ success: true, users: transformedUsers });
   } catch (error) {
@@ -214,6 +219,32 @@ router.patch('/users/:userId/password', async (req, res) => {
 
   } catch (error) {
     console.error('Change password error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Delete user
+router.delete('/users/:userId', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (user.role === 'admin') {
+      return res.status(403).json({ error: 'Cannot delete admin users' });
+    }
+
+    await User.delete(req.params.userId);
+
+    await createAuditLog(req, 'DELETE_USER', 'USER', {
+      userId: user.id, email: user.email, role: user.role
+    });
+
+    res.json({ success: true, message: 'User deleted successfully' });
+
+  } catch (error) {
+    console.error('Delete user error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
