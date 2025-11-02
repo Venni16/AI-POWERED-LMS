@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { AuthProvider } from '../../context/AuthContext'
 import Navbar from '../../components/common/Navbar'
 import ToastProvider from '../../components/common/ToastProvider'
+import AppLoader from '../../components/common/AppLoader'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -17,6 +18,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
+        <AppLoader>
         <AuthProvider>
           <ToastProvider />
           <div className="min-h-screen bg-white">
@@ -24,6 +26,7 @@ export default function RootLayout({
             <main className="pt-16">{children}</main>
           </div>
         </AuthProvider>
+        </AppLoader>
       </body>
     </html>
   )

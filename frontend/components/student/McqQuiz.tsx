@@ -6,6 +6,14 @@ import { studentAPI } from '../../lib/api';
 import { Loader2, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+interface QuizInfo {
+  attemptCount: number;
+  maxAttempts: number;
+  canRetake: boolean | null;
+  attemptsRemaining: number;
+  lastAttempt: any;
+}
+
 interface McqQuizProps {
   courseId: string;
   onClose: () => void;
@@ -18,6 +26,7 @@ export default function McqQuiz({ courseId, onClose }: McqQuizProps) {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<McqSubmissionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [quizInfo, setQuizInfo] = useState<QuizInfo | null>(null);
 
   useEffect(() => {
     fetchMcqs();
@@ -29,6 +38,7 @@ export default function McqQuiz({ courseId, onClose }: McqQuizProps) {
     try {
       const response = await studentAPI.getMcqs(courseId);
       setMcqs(response.data.mcqs);
+      setQuizInfo(response.data.quizInfo);
       if (response.data.mcqs.length === 0) {
         setError('No quiz questions available for this course.');
       }
@@ -86,6 +96,18 @@ export default function McqQuiz({ courseId, onClose }: McqQuizProps) {
         <div className="text-center py-12">
           <AlertTriangle className="w-10 h-10 text-red-500 mx-auto mb-4" />
           <p className="text-red-700 font-medium">{error}</p>
+          {quizInfo && quizInfo.canRetake === false && (
+            <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-yellow-800 text-sm">
+                You have reached the maximum number of attempts ({quizInfo.maxAttempts}) for this quiz.
+              </p>
+              {quizInfo.lastAttempt && (
+                <p className="text-yellow-700 text-sm mt-2">
+                  Last attempt score: {quizInfo.lastAttempt.score}%
+                </p>
+              )}
+            </div>
+          )}
           <button
             onClick={onClose}
             className="mt-4 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm"
@@ -247,6 +269,11 @@ export default function McqQuiz({ courseId, onClose }: McqQuizProps) {
         <div className="flex justify-between items-center pt-4 border-t">
           <div className="text-sm text-gray-600 font-medium">
             Answered: <span className="font-bold text-black">{Object.keys(answers).length}</span> / {mcqs.length}
+            {quizInfo && (
+              <span className="ml-4">
+                Attempts: <span className="font-bold text-black">{quizInfo.attemptCount}</span> / {quizInfo.maxAttempts}
+              </span>
+            )}
           </div>
 
           <div className="flex space-x-3">
@@ -259,11 +286,15 @@ export default function McqQuiz({ courseId, onClose }: McqQuizProps) {
             </button>
             <button
               onClick={handleSubmit}
-              disabled={submitting || mcqs.length === 0}
+              disabled={submitting || mcqs.length === 0 || !!(quizInfo && quizInfo.canRetake === false)}
               className="px-6 py-2 bg-black text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium shadow-md flex items-center space-x-2"
             >
               {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-              <span>{submitting ? 'Submitting...' : 'Submit Quiz'}</span>
+              <span>
+                {submitting ? 'Submitting...' :
+                 (quizInfo && quizInfo.canRetake === false) ? 'Max Attempts Reached' :
+                 'Submit Quiz'}
+              </span>
             </button>
           </div>
         </div>
