@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { ChatMessage, User } from '../../types';
 import { chatAPI } from '../../lib/api';
-import { Send, Loader2 } from 'lucide-react';
+import { Send, Loader2, Smile } from 'lucide-react';
 import { format, isToday } from 'date-fns';
 
 interface ChatProps {
@@ -17,8 +17,11 @@ export default function Chat({ courseId, currentUser }: ChatProps) {
   const [newMessage, setNewMessage] = useState('');
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const emojis = ['😀', '😂', '😊', '😍', '🤔', '👍', '👎', '❤️', '🔥', '🎉', '👏', '🙌', '💯', '✨', '💪', '🤝', '👋', '🙏', '🤗', '😉'];
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -83,9 +86,14 @@ export default function Chat({ courseId, currentUser }: ChatProps) {
     try {
       await chatAPI.sendMessage(courseId, newMessage.trim());
       setNewMessage('');
+      setShowEmojiPicker(false);
     } catch (error) {
       console.error('Failed to send message:', error);
     }
+  };
+
+  const addEmoji = (emoji: string) => {
+    setNewMessage(prev => prev + emoji);
   };
 
   const formatTimestamp = (timestamp: string) => {
@@ -159,6 +167,24 @@ export default function Chat({ courseId, currentUser }: ChatProps) {
 
       {/* Message Input */}
       <div className="p-4 border-t border-gray-200">
+        {/* Emoji Picker */}
+        {showEmojiPicker && (
+          <div className="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="grid grid-cols-10 gap-2">
+              {emojis.map((emoji, index) => (
+                <button
+                  key={index}
+                  onClick={() => addEmoji(emoji)}
+                  className="text-2xl hover:bg-gray-200 rounded p-1 transition-colors"
+                  type="button"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <form onSubmit={sendMessage} className="flex space-x-3">
           <input
             type="text"
@@ -169,6 +195,13 @@ export default function Chat({ courseId, currentUser }: ChatProps) {
             className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent disabled:bg-gray-100 transition-shadow"
             maxLength={500}
           />
+          <button
+            type="button"
+            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+            className="shrink-0 w-12 h-12 bg-gray-200 text-gray-700 rounded-lg flex items-center justify-center hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 transition-colors"
+          >
+            <Smile className="w-5 h-5" />
+          </button>
           <button
             type="submit"
             disabled={!newMessage.trim() || !isConnected}
