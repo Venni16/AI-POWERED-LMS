@@ -99,11 +99,9 @@ export default function Home() {
                 transition={{ duration: 0.8, delay: 0.4 }}
                 className="text-base md:text-xl text-gray-700 max-w-4xl mx-auto leading-relaxed font-light"
               >
-                Experience the future of education with{" "}
-                <span className="font-semibold text-black">
-                  AI-driven video summarization
+                <span className="font-light text-gray-900">
+                Experience the future of education with{" "} AI-driven video summarization, personalized course recommendations, and intelligent learning analytics.
                 </span>
-                , personalized course recommendations, and intelligent learning analytics.
               </motion.p>
             </div>
           </motion.div>

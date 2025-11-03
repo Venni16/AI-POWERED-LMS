@@ -142,7 +142,7 @@ export default function MyCoursesContent({ showProgressOnly = false, stats, stat
                 <div className="flex items-center space-x-4 w-full sm:w-auto">
                   <div className="w-32 bg-gray-200 rounded-full h-2.5">
                     <div
-                      className="bg-black h-2.5 rounded-full transition-all duration-300"
+                      className="bg-green-500 h-2.5 rounded-full transition-all duration-300"
                       style={{ width: `${progress}%` }}
                     ></div>
                   </div>
@@ -218,7 +218,7 @@ export default function MyCoursesContent({ showProgressOnly = false, stats, stat
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2.5">
                         <div
-                          className="bg-black h-2.5 rounded-full transition-all duration-300"
+                          className="bg-green-500 h-2.5 rounded-full transition-all duration-300"
                           style={{ width: `${progress}%` }}
                         ></div>
                       </div>
@@ -226,7 +226,7 @@ export default function MyCoursesContent({ showProgressOnly = false, stats, stat
 
                     <Link
                       href={`/student/courses/${course.id}`}
-                      className="w-full flex items-center justify-center space-x-2 bg-black text-white py-2.5 px-4 rounded-lg text-sm font-medium text-center hover:bg-gray-800 transition-colors shadow-md"
+                      className="w-full flex items-center justify-center space-x-2 bg-blue-500 text-white py-2.5 px-4 rounded-lg text-sm font-medium text-center hover:bg-blue-600 transition-colors shadow-md"
                     >
                       <span>Continue Learning</span>
                       <ArrowRight className="w-4 h-4" />

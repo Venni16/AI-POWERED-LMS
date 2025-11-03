@@ -11,8 +11,8 @@ import { motion } from 'framer-motion';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend } from 'recharts';
 import { Users, BookOpen, UserCheck, FileText, LayoutDashboard, Key } from 'lucide-react';
 
-// Define a consistent monochrome color palette for charts
-const CHART_COLORS = ['#000000', '#333333', '#666666', '#999999'];
+// Define a consistent color palette for charts
+const CHART_COLORS = ['#0000FF', '#00FF00', '#FF0000'];
 
 interface StatCardProps {
   title: string;
@@ -67,7 +67,7 @@ const DashboardContent = ({ stats, loading, chartData }: { stats: any, loading: 
             <XAxis dataKey="month" stroke="#374151" />
             <YAxis stroke="#374151" />
             <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }} />
-            <Line type="monotone" dataKey="users" stroke={CHART_COLORS[0]} strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+            <Line type="monotone" dataKey="users" stroke={'green'} strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -86,8 +86,8 @@ const DashboardContent = ({ stats, loading, chartData }: { stats: any, loading: 
               fill="#8884d8"
               dataKey="value"
             >
-              {chartData.roleDistribution.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.color} />
+              {chartData.roleDistribution.map((entry: { name: string; value: number; color: string }, index: number) => (
+                <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
               ))}
             </Pie>
             <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }} />

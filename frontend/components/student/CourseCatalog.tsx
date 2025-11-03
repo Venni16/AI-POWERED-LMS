@@ -165,9 +165,28 @@ export default function CourseCatalog() {
 
                     <div className="flex items-center text-sm text-gray-500 mb-4">
                       <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center mr-2">
-                        <span className="text-xs font-medium text-gray-700">
+                        {course.instructor.avatar_url ? (
+                          <img
+                            src={course.instructor.avatar_url}
+                            alt={course.instructor.name}
+                            className="w-8 h-8 rounded-full object-cover"
+                            onError={(e) => {
+                              const img = e.currentTarget;
+                              const fallback = img.nextElementSibling as HTMLElement;
+                              if (img && fallback) {
+                                img.style.display = 'none';
+                                fallback.style.display = 'flex';
+                              }
+                            }}
+                          />
+                        ) : null}
+                        <div
+                          className={`w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-xs font-medium text-gray-700 ${
+                            course.instructor.avatar_url ? 'hidden' : ''
+                          }`}
+                        >
                           {course.instructor.name.charAt(0).toUpperCase()}
-                        </span>
+                        </div>
                       </div>
                       <span className="font-medium text-gray-700">{course.instructor.name}</span>
                     </div>
@@ -178,7 +197,7 @@ export default function CourseCatalog() {
                       className={`w-full py-2.5 px-4 rounded-lg text-sm font-medium transition-colors shadow-md flex items-center justify-center space-x-2 ${
                         isEnrolled
                           ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
-                          : 'bg-black text-white hover:bg-gray-800'
+                          : 'bg-blue-500 text-white hover:bg-blue-800'
                       }`}
                     >
                       {enrolling ? (
