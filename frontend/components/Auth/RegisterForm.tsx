@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import webtitleimg1 from '../../public/webtitleimg1.jpg';
 import Link from 'next/link';
 
 export default function RegisterForm() {
@@ -59,6 +60,10 @@ export default function RegisterForm() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
+        <div className="flex items-center justify-center space-x-2 mb-4">
+            <img src={webtitleimg1.src} alt="Logo" className="w-10 h-13 rounded-lg object-cover" />
+            <span className="font-bold text-xl text-gray-800">Vortex</span>
+          </div>
           <CardTitle className="text-3xl font-bold">Create your account</CardTitle>
           <CardDescription>
             Or{' '}

@@ -95,7 +95,7 @@ export default function InstructorDashboard() {
   return (
     <ProtectedRoute allowedRoles={['instructor']}>
       <SidebarLayout
-        title="Instructor Hub"
+        title="Vortex Instructor Hub"
         description="Manage your content, students, and engagement tools."
         navItems={instructorNavItems}
         defaultTab="dashboard"

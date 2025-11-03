@@ -84,12 +84,12 @@ export default function Home() {
                 className="flex items-center justify-center gap-2 mb-4 md:mb-6"
               >
                 <Sparkles className="w-5 h-5 md:w-6 md:h-6 text-gray-600 animate-pulse" />
-                <span className="text-xs sm:text-sm font-semibold text-gray-700 uppercase tracking-wider">Next-Gen Learning Platform</span>
+                <span className="text-xs sm:text-sm font-semibold text-gray-700 uppercase tracking-wider">Vortex Next-Gen Learning Platform</span>
                 <Sparkles className="w-5 h-5 md:w-6 md:h-6 text-gray-600 animate-pulse" />
               </motion.div>
               
               <ParticleTextEffect
-                words={["AI-POWERED-LMS","AI-Powered", "Learning","Management System","With","Video Summarization","Course Recommendations","Real-Time Chat"]}
+                words={["Vortex","AI-POWERED-LMS","With","Video Summarization","Course Recommendations","Real-Time Chat"]}
                 className="mx-auto mb-4 md:mb-6"
               />
               
@@ -368,7 +368,7 @@ export default function Home() {
             <div className="md:col-span-2">
               <div className="flex items-center gap-2 mb-4">
                 <Sparkles className="w-6 h-6 text-white" />
-                <span className="text-xl font-bold">AI-POWERED-LMS</span>
+                <span className="text-xl font-bold">Vortex AI-POWERED-LMS</span>
               </div>
               <p className="text-gray-300 mb-6 max-w-md leading-relaxed">
                 Revolutionizing education with AI-driven video summarization, personalized learning paths, and intelligent analytics for the future of online learning.
@@ -412,7 +412,7 @@ export default function Home() {
           {/* Bottom Section */}
           <div className="border-t border-gray-800 mt-8 md:mt-12 pt-8 flex flex-col md:flex-row justify-between items-center">
             <p className="text-gray-400 text-sm">
-              © 2025 AI-POWERED-LMS. All rights reserved.
+              © 2025 Vortex AI-POWERED-LMS. All rights reserved.
             </p>
             <div className="flex items-center gap-4 mt-4 md:mt-0">
               <span className="text-gray-400 text-sm">Made with</span>

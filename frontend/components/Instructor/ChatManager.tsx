@@ -77,7 +77,7 @@ export default function ChatManager() {
   return (
     <div className="bg-white rounded-xl shadow-lg border border-gray-200">
       <div className="p-6 border-b border-gray-200">
-        <h2 className="text-xl font-semibold text-gray-900">Course Chat Management</h2>
+        <h2 className="text-xl font-semibold text-gray-900">Vortax Course Chat</h2>
         <p className="mt-1 text-sm text-gray-600">
           Select a course to view and manage its real-time discussion.
         </p>

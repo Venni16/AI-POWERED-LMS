@@ -52,7 +52,7 @@ const AppLoader: React.FC<AppLoaderProps> = ({ children }) => {
                 className="mt-4 text-lg font-semibold text-gray-700 flex items-center"
               >
                 <Sparkles className="w-4 h-4 mr-2 text-gray-500" />
-                Loading AI LMS...
+                Loading Vortex...
               </motion.p>
             </motion.div>
           </motion.div>

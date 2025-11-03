@@ -6,8 +6,10 @@ import AppLoader from '../../components/common/AppLoader'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'AI-Powered LMS',
+  title: 'Vortex',
   description: 'Learning Management System with AI Video Summarization',
+  icons: '/webtitleimg1.jpg',
+  
 }
 
 export default function RootLayout({

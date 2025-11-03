@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Menu, X, LogOut, User } from 'lucide-react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
+import webtitleimg1 from '../../public/webtitleimg1.jpg';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
@@ -27,10 +28,8 @@ export default function Navbar() {
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">AI</span>
-              </div>
-              <span className="font-bold text-xl text-gray-800">LMS</span>
+              <img src={webtitleimg1.src} alt="Logo" className="w-8 h-8 rounded-lg object-cover" />
+              <span className="font-bold text-xl text-gray-800">Vortex</span>
             </Link>
           </div>
 

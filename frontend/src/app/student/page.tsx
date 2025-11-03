@@ -52,7 +52,7 @@ export default function StudentDashboard() {
     <ProtectedRoute allowedRoles={['student']}>
       <SidebarLayout
         title="My Learning Journey"
-        description="Welcome back! Track your progress and discover new courses."
+        description="Welcome back To Vortex! Track your progress and discover new courses."
         navItems={studentNavItems}
         defaultTab="my-courses"
       />
