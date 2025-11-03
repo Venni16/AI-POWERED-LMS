@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'next/navigation';
 import GoogleLoginButton from './GoogleLoginButton';
+import GithubLoginButton from './GithubLoginButton';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -94,6 +95,7 @@ export default function LoginForm() {
                 {loading ? 'Signing in...' : 'Sign in'}
               </Button>
               <GoogleLoginButton />
+              <GithubLoginButton />
             </div>
           </form>
 

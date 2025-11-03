@@ -31,6 +31,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   googleLogin: () => Promise<void>;
+  githubLogin: () => Promise<void>;
   logout: () => void;
   loading: boolean;
   updateProfile: (formData: FormData) => Promise<void>;
@@ -138,7 +139,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // The auth state changes are handled by the onAuthStateChange listener above
   };
 
-  const logout = () => {
+  const githubLogin = async () => {
+    // This method is kept for compatibility but the actual login
+    // is handled by the GithubLoginButton component and Supabase OAuth redirect
+    // The auth state changes are handled by the onAuthStateChange listener above
+  };
+
+  const logout = async () => {
+    try {
+      // Sign out from Supabase first
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('Supabase sign out error:', error);
+    }
+
+    // Clear local state and storage
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
@@ -146,7 +161,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, googleLogin, logout, loading, updateProfile }}>
+    <AuthContext.Provider value={{ user, login, register, googleLogin, githubLogin, logout, loading, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );
