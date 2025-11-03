@@ -44,7 +44,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    checkAuth();
+    // Check for existing Supabase session first
+    const initializeAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        console.log('Initial session check:', !!session, error);
+
+        if (session && !user) {
+          console.log('Found existing session, processing auth...');
+          // Process the existing session
+          try {
+            const response = await authAPI.supabaseAuth({
+              access_token: session.access_token,
+              refresh_token: session.refresh_token,
+              user: session.user
+            });
+
+            console.log('Backend auth successful for existing session');
+            const { token, user: authUser } = response.data;
+            localStorage.setItem('token', token);
+            localStorage.setItem('user', JSON.stringify(authUser));
+            setUser(authUser);
+          } catch (authError) {
+            console.error('Supabase auth callback error for existing session:', authError);
+            // Clear invalid session
+            await supabase.auth.signOut();
+          }
+        } else {
+          // No session, check for stored token
+          checkAuth();
+        }
+      } catch (error) {
+        console.error('Error getting initial session:', error);
+        checkAuth();
+      } finally {
+        // Ensure loading is set to false after initialization
+        setLoading(false);
+      }
+    };
+
+    initializeAuth();
 
     // Listen for auth state changes from Supabase
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -65,16 +104,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           localStorage.setItem('token', token);
           localStorage.setItem('user', JSON.stringify(user));
           setUser(user);
+          setLoading(false); // Set loading to false after successful auth
         } catch (error) {
           console.error('Supabase auth callback error:', error);
           // Don't set user if backend auth fails
           // This prevents the app from getting into an inconsistent state
+          setLoading(false); // Set loading to false even on error
         }
       } else if (event === 'SIGNED_OUT') {
         console.log('Supabase SIGNED_OUT event');
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         setUser(null);
+        setLoading(false); // Set loading to false on sign out
       }
     });
 
