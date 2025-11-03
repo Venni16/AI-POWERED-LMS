@@ -2,6 +2,7 @@ import express from 'express';
 import { body, validationResult } from 'express-validator';
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
+import { createClient } from '@supabase/supabase-js';
 import { User } from '../models/User.js';
 import { FailedLoginAttempt } from '../models/FailedLoginAttempt.js';
 import { createAuditLog, authenticate } from '../middleware/auth.js';
@@ -311,7 +312,7 @@ router.post('/login', [
         const recentAttempts = await FailedLoginAttempt.countRecentAttempts(email, 15);
         console.log(`Failed login attempts for ${email}: ${recentAttempts + 1}`);
 
-        if (recentAttempts >= 2) { // +1 for the current attempt
+        if (recentAttempts >= 3 && user.role === 'instructor') { // +1 for the current attempt, only lock instructors
           // Deactivate the account
           await User.update(user.id, { is_active: false });
           await createAuditLog(req, 'ACCOUNT_LOCKED', 'USER', {
@@ -350,6 +351,180 @@ router.post('/login', [
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Server error during login' });
+  }
+});
+
+// Password reset endpoint for Supabase integration
+router.post('/reset-password', authenticate, [
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { password } = req.body;
+    const userId = req.user.id;
+
+    // Hash the new password
+    const bcrypt = await import('bcryptjs');
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    // Update user password in database
+    const updatedUser = await User.update(userId, { password: hashedPassword });
+
+    await createAuditLog(req, 'PASSWORD_RESET', 'USER', { userId });
+
+    res.json({
+      success: true,
+      message: 'Password updated successfully'
+    });
+
+  } catch (error) {
+    console.error('Password reset error:', error);
+    res.status(500).json({ error: 'Server error during password reset' });
+  }
+});
+
+// Password reset for Google-only accounts (no authentication required)
+router.post('/reset-password-public', [
+  body('email').isEmail().withMessage('Valid email required'),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { email, password } = req.body;
+
+    // Find user by email
+    const user = await User.findByEmail(email);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Update user password in backend database (User.update will hash it)
+    const updatedUser = await User.update(user.id, { password: password });
+
+    await createAuditLog(req, 'PASSWORD_RESET_PUBLIC', 'USER', { userId: user.id, email });
+
+    res.json({
+      success: true,
+      message: 'Password updated successfully'
+    });
+
+  } catch (error) {
+    console.error('Public password reset error:', error);
+    res.status(500).json({ error: 'Server error during password reset' });
+  }
+});
+
+// Check if user exists endpoint
+router.post('/check-user', [
+  body('email').isEmail().withMessage('Valid email required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { email } = req.body;
+
+    const user = await User.findByEmail(email);
+    res.json({ exists: !!user });
+  } catch (error) {
+    console.error('Check user error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Forgot password endpoint - sends OTP via Supabase for all users
+router.post('/forgot-password', [
+  body('email').isEmail().withMessage('Valid email required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { email } = req.body;
+    console.log('Forgot password request for email:', email);
+
+    // Check if user exists
+    const user = await User.findByEmail(email);
+    if (!user) {
+      console.log('User not found in database:', email);
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    console.log('User found:', { id: user.id, email: user.email, role: user.role });
+
+    // Check Supabase environment variables
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('Missing Supabase environment variables');
+      return res.status(500).json({ error: 'Email service not configured' });
+    }
+
+    console.log('Supabase URL configured:', !!supabaseUrl);
+    console.log('Supabase service key configured:', !!supabaseServiceKey);
+
+    // For all users (both regular and Google), use Supabase to send reset email
+    // This works because we create Supabase auth users for regular registrations too
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Check if Supabase auth user exists
+    const { data: existingAuthUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+    if (listError) {
+      console.error('Error listing Supabase users:', listError);
+      return res.status(500).json({ error: 'Failed to check user status' });
+    }
+
+    const authUser = existingAuthUsers.users.find(u => u.email === email);
+    console.log('Supabase auth user exists:', !!authUser);
+
+    if (!authUser) {
+      console.log('Creating temporary Supabase auth user for:', email);
+      // Create a temporary Supabase auth user for password reset
+      const { data, error } = await supabaseAdmin.auth.admin.createUser({
+        email: email,
+        password: Math.random().toString(36), // Temporary password
+        email_confirm: true
+      });
+
+      if (error) {
+        console.error('Error creating Supabase auth user:', error);
+        return res.status(500).json({ error: 'Failed to setup password reset' });
+      }
+      console.log('Created Supabase auth user:', data?.user?.id);
+    }
+
+    // Send password reset email via Supabase
+    console.log('Sending password reset email to:', email);
+
+    const { error: resetError } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
+      redirectTo: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password`,
+    });
+
+    if (resetError) {
+      console.error('Supabase reset password error:', resetError);
+      return res.status(500).json({ error: 'Failed to send reset email' });
+    }
+
+    console.log('Reset email sent successfully for:', email);
+    await createAuditLog(req, 'FORGOT_PASSWORD', 'USER', { email });
+
+    res.json({ success: true, message: 'Reset email sent successfully' });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ error: 'Server error during password reset' });
   }
 });
 

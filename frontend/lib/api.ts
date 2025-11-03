@@ -47,6 +47,18 @@ export const authAPI = {
         'Content-Type': 'multipart/form-data',
       },
     }),
+
+  resetPassword: (password: string) =>
+    api.post('/auth/reset-password', { password }),
+
+  resetPasswordPublic: (email: string, password: string) =>
+    api.post('/auth/reset-password-public', { email, password }),
+
+  checkUserExists: (email: string) =>
+    api.post('/auth/check-user', { email }),
+
+  forgotPassword: (email: string) =>
+    api.post('/auth/forgot-password', { email }),
 };
 
 export const adminAPI = {

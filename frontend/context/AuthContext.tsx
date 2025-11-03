@@ -48,6 +48,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Listen for auth state changes from Supabase
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state change:', event, !!session);
+
       if (event === 'SIGNED_IN' && session) {
         try {
           console.log('Supabase SIGNED_IN event, sending to backend...');
