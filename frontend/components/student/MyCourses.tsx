@@ -148,7 +148,7 @@ export default function MyCoursesContent({ showProgressOnly = false, stats, stat
                   </div>
                   <span className="text-sm font-bold text-gray-900 w-10 text-right">{Math.round(progress)}%</span>
                   <Link
-                    href={`/student/courses/${course.id}`}
+                    href={`/student/courses/${course.slug || course.id}`}
                     className="text-black hover:text-gray-700 transition-colors shrink-0"
                     title="Continue Learning"
                   >
@@ -225,7 +225,7 @@ export default function MyCoursesContent({ showProgressOnly = false, stats, stat
                     </div>
 
                     <Link
-                      href={`/student/courses/${course.id}`}
+                      href={`/student/courses/${course.slug || course.id}`}
                       className="w-full flex items-center justify-center space-x-2 bg-blue-500 text-white py-2.5 px-4 rounded-lg text-sm font-medium text-center hover:bg-blue-600 transition-colors shadow-md"
                     >
                       <span>Continue Learning</span>

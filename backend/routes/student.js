@@ -76,6 +76,7 @@ router.get('/my-courses', async (req, res) => {
     const transformedCourses = courses.map(course => ({
       ...course,
       id: course.id,
+      slug: course.slug,
       title: course.title,
       description: course.description,
       category: course.category,
@@ -112,15 +113,32 @@ router.get('/courses/:courseId', async (req, res) => {
       return res.status(400).json({ error: 'Invalid course ID' });
     }
 
-    // Check if user is enrolled in the course
-    const { Enrollment } = await import('../models/Enrollment.js');
-    const enrollment = await Enrollment.findByStudentAndCourse(req.user.id, req.params.courseId);
+    // Check if courseId is a UUID or slug
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(req.params.courseId);
+    let course;
 
-    if (!enrollment) {
-      return res.status(404).json({ error: 'Course not found or access denied' });
+    if (isUUID) {
+      // Check if user is enrolled in the course
+      const { Enrollment } = await import('../models/Enrollment.js');
+      const enrollment = await Enrollment.findByStudentAndCourse(req.user.id, req.params.courseId);
+
+      if (!enrollment) {
+        return res.status(404).json({ error: 'Course not found or access denied' });
+      }
+
+      course = await Course.findById(req.params.courseId);
+    } else {
+      // It's a slug, find by slug
+      course = await Course.findBySlug(req.params.courseId);
+
+      // Check if user is enrolled in the course
+      const { Enrollment } = await import('../models/Enrollment.js');
+      const enrollment = await Enrollment.findByStudentAndCourse(req.user.id, course.id);
+
+      if (!enrollment) {
+        return res.status(404).json({ error: 'Course not found or access denied' });
+      }
     }
-
-    const course = await Course.findById(req.params.courseId);
 
     if (!course || !course.is_published) {
       return res.status(404).json({ error: 'Course not found or access denied' });

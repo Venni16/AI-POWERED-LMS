@@ -1,11 +1,23 @@
 import { supabase } from '../lib/supabase.js';
 
 export class Course {
+  static generateSlug(title) {
+    return title
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
+      .replace(/\s+/g, '-') // Replace spaces with hyphens
+      .replace(/-+/g, '-') // Replace multiple hyphens with single
+      .trim()
+      .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
+  }
+
   static async create(courseData) {
+    const slug = this.generateSlug(courseData.title);
     const { data, error } = await supabase
       .from('courses')
       .insert([{
         title: courseData.title,
+        slug: slug,
         description: courseData.description,
         instructor_id: courseData.instructor,
         category: courseData.category,
@@ -36,6 +48,32 @@ export class Course {
         )
       `)
       .eq('id', id)
+      .single();
+
+    if (error) throw error;
+
+    // Sort videos by created_at ascending (upload order)
+    if (data.videos) {
+      data.videos.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    }
+
+    return data;
+  }
+
+  static async findBySlug(slug) {
+    const { data, error } = await supabase
+      .from('courses')
+      .select(`
+        *,
+        instructor:users(id, name, email, avatar_url, specialization),
+        videos(*),
+        materials(*),
+        enrollments(
+          enrolled_at,
+          student:users(id, name, email, avatar_url)
+        )
+      `)
+      .eq('slug', slug)
       .single();
 
     if (error) throw error;
@@ -88,21 +126,22 @@ export class Course {
     const { data, error } = await supabase
       .from('enrollments')
       .select(`
-        course:courses(
-          id,
-          title,
-          description,
-          category,
-          price,
-          thumbnail_url,
-          is_published,
-          enrollment_count,
-          created_at,
-          updated_at,
-          instructor:users(id, name, email, avatar_url, specialization),
-          videos(id, title, filename, original_name, file_size, file_type, duration, transcript, summary, edited_summary, processing_time, status, course_id, created_at),
-          materials(id)
-        )
+    course:courses(
+      id,
+      slug,
+      title,
+      description,
+      category,
+      price,
+      thumbnail_url,
+      is_published,
+      enrollment_count,
+      created_at,
+      updated_at,
+      instructor:users(id, name, email, avatar_url, specialization),
+      videos(id, title, filename, original_name, file_size, file_type, duration, transcript, summary, edited_summary, processing_time, status, course_id, created_at),
+      materials(id)
+    )
       `)
       .eq('student_id', studentId)
       .order('enrolled_at', { ascending: false });

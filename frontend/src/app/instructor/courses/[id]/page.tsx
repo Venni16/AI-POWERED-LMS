@@ -530,8 +530,8 @@ export default function InstructorCourseDetailPage() {
               )}
 
               {/* Chat Component */}
-              {currentUser && (
-                <Chat courseId={courseId as string} currentUser={currentUser} />
+              {currentUser && course && (
+                <Chat courseId={course.id} currentUser={currentUser} />
               )}
             </div>
           </div>

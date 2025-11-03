@@ -13,8 +13,16 @@ const canAccessCourseChat = async (req, res, next) => {
     const userId = req.user.id;
     const userRole = req.user.role;
 
-    // Check if course exists
-    const course = await Course.findById(courseId);
+    // Check if courseId is a UUID or slug
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(courseId);
+
+    let course;
+    if (isUUID) {
+      course = await Course.findById(courseId);
+    } else {
+      course = await Course.findBySlug(courseId);
+    }
+
     if (!course) {
       return res.status(404).json({ error: 'Course not found' });
     }

@@ -16,6 +16,9 @@ export default function CourseDetailPage() {
   const params = useParams();
   const courseId = Array.isArray(params.id) ? params.id[0] : params.id;
 
+  // Check if courseId is a UUID or slug
+  const isUUID = courseId ? /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(courseId) : false;
+
   const [course, setCourse] = useState<Course | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeVideo, setActiveVideo] = useState<Video | null>(null);
@@ -357,8 +360,8 @@ export default function CourseDetailPage() {
               </div>
 
               {/* Chat Component */}
-              {currentUser && (
-                <Chat courseId={courseId as string} currentUser={currentUser} />
+              {currentUser && course && (
+                <Chat courseId={course.id} currentUser={currentUser} />
               )}
             </div>
           </div>

@@ -18,6 +18,7 @@ export interface User {
 export interface Course {
   id: string;
   title: string;
+  slug?: string;
   description: string;
   instructor: User;
   category: string;
