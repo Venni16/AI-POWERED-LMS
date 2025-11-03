@@ -100,11 +100,10 @@ export default function LoginForm() {
           </form>
 
           <div className="mt-6 text-center border-t pt-4">
-            <div className="text-sm text-gray-600 mb-2">Demo Accounts:</div>
+            <div className="text-sm text-gray-600 mb-2">Note:</div>
             <div className="text-xs text-gray-500 space-y-1">
-              <div>Admin: admin@lms.com / admin123</div>
-              <div>Student: Register new account</div>
-              <div>Instructor: Created by admin</div>
+              <div>Instructor Accounts only Created by admin</div>
+              <div>Mail:venniwork16@gmail.com,to join as Instructor</div>
             </div>
           </div>
         </CardContent>
