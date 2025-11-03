@@ -159,49 +159,67 @@ router.post('/register', [
   }
 });
 
-// Google OAuth login
-router.post('/google', async (req, res) => {
+// Supabase Auth callback handler
+router.post('/supabase-auth', async (req, res) => {
   try {
-    const { token: googleToken } = req.body;
+    const { access_token, refresh_token, user: supabaseUser } = req.body;
 
-    if (!googleToken) {
-      return res.status(400).json({ error: 'Google token is required' });
-    }
-
-    // Verify Google token
-    const ticket = await googleClient.verifyIdToken({
-      idToken: googleToken,
-      audience: process.env.GOOGLE_CLIENT_ID
+    console.log('Supabase auth request received:', {
+      hasAccessToken: !!access_token,
+      hasRefreshToken: !!refresh_token,
+      hasUser: !!supabaseUser,
+      userEmail: supabaseUser?.email
     });
 
-    const payload = ticket.getPayload();
-    const { sub: googleId, email, name, picture } = payload;
+    if (!supabaseUser || !access_token) {
+      console.error('Missing required auth data');
+      return res.status(400).json({ error: 'Invalid auth data' });
+    }
+
+    const { email, user_metadata } = supabaseUser;
+    console.log('Processing user:', { email, user_metadata });
+
+    if (!email) {
+      console.error('No email in supabase user data');
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const name = user_metadata?.full_name || user_metadata?.name || email.split('@')[0];
+    const avatarUrl = user_metadata?.avatar_url || user_metadata?.picture;
+
+    console.log('Extracted user data:', { name, avatarUrl });
 
     // Find or create user
     let user = await User.findByEmail(email);
+    console.log('Existing user found:', !!user);
 
     if (!user) {
-      // Create new user with Google OAuth
+      console.log('Creating new user');
+      // Create new user with Supabase Auth
       user = await User.create({
         name,
         email,
-        googleId,
-        avatarUrl: picture,
+        avatarUrl,
         role: 'student'
       });
-    } else if (!user.google_id) {
-      // Link Google account to existing user
+      console.log('New user created:', user.id);
+    } else {
+      console.log('Updating existing user');
+      // Update existing user with latest info
       user = await User.update(user.id, {
-        googleId,
-        avatarUrl: picture
+        name,
+        avatar_url: avatarUrl
       });
+      console.log('User updated:', user.id);
     }
 
     // Create JWT token
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
+    console.log('JWT token created for user:', user.id);
 
-    await createAuditLog(req, 'GOOGLE_LOGIN', 'USER', { userId: user.id, email });
+    await createAuditLog(req, 'SUPABASE_LOGIN', 'USER', { userId: user.id, email });
 
+    console.log('Auth successful, sending response');
     res.json({
       success: true,
       token,
@@ -215,8 +233,9 @@ router.post('/google', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Google OAuth error:', error);
-    res.status(500).json({ error: 'Google authentication failed' });
+    console.error('Supabase auth error:', error);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ error: 'Authentication failed', details: error.message });
   }
 });
 

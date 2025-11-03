@@ -36,8 +36,8 @@ export const authAPI = {
   register: (name: string, email: string, password: string) =>
     api.post<AuthResponse>('/auth/register', { name, email, password }),
 
-  googleLogin: (token: string) =>
-    api.post<AuthResponse>('/auth/google', { token }),
+  supabaseAuth: (authData: any) =>
+    api.post<AuthResponse>('/auth/supabase-auth', authData),
 
   getMe: () => api.get<AuthResponse>('/auth/me'),
 

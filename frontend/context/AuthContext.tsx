@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { authAPI } from '../lib/api';
+import { supabase } from '../lib/supabase';
 
 // Define types locally to avoid import issues
 interface User {
@@ -29,6 +30,7 @@ interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
+  googleLogin: () => Promise<void>;
   logout: () => void;
   loading: boolean;
   updateProfile: (formData: FormData) => Promise<void>;
@@ -42,6 +44,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     checkAuth();
+
+    // Listen for auth state changes from Supabase
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        try {
+          console.log('Supabase SIGNED_IN event, sending to backend...');
+          // Send session data to backend for user creation/verification
+          const response = await authAPI.supabaseAuth({
+            access_token: session.access_token,
+            refresh_token: session.refresh_token,
+            user: session.user
+          });
+
+          console.log('Backend auth successful');
+          const { token, user } = response.data;
+          localStorage.setItem('token', token);
+          localStorage.setItem('user', JSON.stringify(user));
+          setUser(user);
+        } catch (error) {
+          console.error('Supabase auth callback error:', error);
+          // Don't set user if backend auth fails
+          // This prevents the app from getting into an inconsistent state
+        }
+      } else if (event === 'SIGNED_OUT') {
+        console.log('Supabase SIGNED_OUT event');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const checkAuth = async () => {
@@ -98,6 +132,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const googleLogin = async () => {
+    // This method is kept for compatibility but the actual login
+    // is handled by the GoogleLoginButton component and Supabase OAuth redirect
+    // The auth state changes are handled by the onAuthStateChange listener above
+  };
+
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -106,7 +146,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading, updateProfile }}>
+    <AuthContext.Provider value={{ user, login, register, googleLogin, logout, loading, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

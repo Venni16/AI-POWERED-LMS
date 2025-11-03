@@ -2,29 +2,28 @@
 
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '@/components/ui/button';
-
-declare global {
-  interface Window {
-    google: any;
-  }
-}
+import { supabase } from '../../lib/supabase';
 
 export default function GoogleLoginButton() {
-  const { login } = useAuth();
+  const { googleLogin } = useAuth();
 
   const handleGoogleLogin = async () => {
     try {
-      // You'll need to set up Google OAuth in Supabase and get the client ID
-      // This is a simplified version - you might want to use a proper Google OAuth library
-      
-      // For now, we'll use a mock implementation
-      // In production, implement proper Google OAuth flow
-      console.log('Google OAuth would be implemented here');
-      
-      // After getting Google token:
-      // const response = await authAPI.googleLogin(googleToken);
-      // Then handle the response like regular login
-      
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`
+        }
+      });
+
+      if (error) {
+        console.error('Supabase Google login error:', error);
+        throw error;
+      }
+
+      // The redirect will happen automatically
+      // After redirect back, the auth state will be handled by AuthContext
+
     } catch (error) {
       console.error('Google login error:', error);
     }

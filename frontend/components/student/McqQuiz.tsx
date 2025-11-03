@@ -234,11 +234,15 @@ export default function McqQuiz({ courseId, onClose }: McqQuizProps) {
                   const isSelected = answers[mcq.id] === optionNum.toString();
 
                   return (
-                    <label
+                    <motion.label
                       key={optionNum}
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.3 }}
                       className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${
                         isSelected ? 'bg-black text-white border-black shadow-md' : 'bg-white border-gray-200 hover:bg-gray-100'
                       }`}
+                      onClick={(e) => e.stopPropagation()}
                     >
                       <input
                         type="radio"
@@ -258,7 +262,7 @@ export default function McqQuiz({ courseId, onClose }: McqQuizProps) {
                         }}
                       />
                       <span className={`text-sm ${isSelected ? 'text-white' : 'text-gray-700'}`}>{optionText}</span>
-                    </label>
+                    </motion.label>
                   );
                 })}
               </div>
@@ -303,8 +307,8 @@ export default function McqQuiz({ courseId, onClose }: McqQuizProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[95vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[95vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="p-6 flex-1 overflow-y-auto custom-scrollbar">
           <QuizContent />
         </div>
