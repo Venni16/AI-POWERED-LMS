@@ -98,7 +98,7 @@ export default function CourseCatalog() {
             <div className="flex items-center mb-6">
               <Sparkles className="w-6 h-6 text-purple-600 mr-3" />
               <h3 className="text-xl font-semibold text-gray-900">Top 3 Recommendation for You</h3>
-              <span className="ml-2 text-sm text-purple-600 bg-purple-100 px-2 py-1 rounded-full">
+              <span className="ml-2 text-sm text text-black-600 bg-purple-100 px-2 py-1 rounded-full">
                 AI-Powered
               </span>
             </div>
@@ -155,7 +155,7 @@ export default function CourseCatalog() {
                         className={`w-full py-2 px-3 rounded-lg text-xs font-medium transition-colors shadow-sm flex items-center justify-center space-x-1 ${
                           isEnrolled
                             ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
-                            : 'bg-purple-500 text-white hover:bg-purple-700'
+                            : 'bg-blue-500 text-white hover:bg-blue-700'
                         }`}
                       >
                         {enrolling ? (

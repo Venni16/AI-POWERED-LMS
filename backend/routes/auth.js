@@ -141,7 +141,7 @@ router.post('/register', [
     // Create token
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
 
-    await createAuditLog(req, 'REGISTER', 'USER', { userId: user.id, email });
+    await createAuditLog(req, 'REGISTER', 'USER', { userId: user.id, email, userName: user.name, userRole: user.role });
 
     res.status(201).json({
       success: true,
@@ -218,7 +218,7 @@ router.post('/supabase-auth', async (req, res) => {
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
     console.log('JWT token created for user:', user.id);
 
-    await createAuditLog(req, 'SUPABASE_LOGIN', 'USER', { userId: user.id, email });
+    await createAuditLog(req, 'GOOGLE_LOGIN', 'USER', { userId: user.id, email });
 
     console.log('Auth successful, sending response');
     res.json({

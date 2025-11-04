@@ -380,6 +380,14 @@ router.post('/courses/:courseId/mcqs/submit', async (req, res) => {
       correctAnswers: correctCount
     });
 
+    await createAuditLog(req, 'SUBMIT_MCQ', 'MCQ', {
+      courseId: req.params.courseId,
+      attemptNumber: attemptNumber,
+      score: Math.round(score),
+      totalQuestions: totalCount,
+      correctAnswers: correctCount
+    });
+
     // Award achievement if student gets full marks
     let achievement = null;
     if (score === 100 && totalCount > 0) {
@@ -475,7 +483,29 @@ router.get('/recommendations', async (req, res) => {
 
     const recommendations = await Course.getRecommendationsForStudent(req.user.id);
 
-    res.json({ success: true, recommendations });
+    // Transform courses to match frontend expectations (camelCase)
+    const transformedRecommendations = recommendations.map(course => ({
+      ...course,
+      id: course.id,
+      slug: course.slug,
+      title: course.title,
+      description: course.description,
+      category: course.category,
+      price: course.price,
+      thumbnailUrl: course.thumbnail_url,
+      isPublished: course.is_published,
+      enrollmentCount: course.enrollment_count,
+      createdAt: course.created_at,
+      updatedAt: course.updated_at,
+      instructor: course.instructor,
+      videos: course.videos?.map(video => ({
+        ...video,
+        uploadDate: video.created_at
+      })) || [],
+      materials: course.materials || []
+    }));
+
+    res.json({ success: true, recommendations: transformedRecommendations });
 
   } catch (error) {
     console.error('Get recommendations error:', error);

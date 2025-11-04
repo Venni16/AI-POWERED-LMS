@@ -51,7 +51,8 @@ export default function AuditLogs() {
       UPDATE_SUMMARY: 'Update Summary',
       DELETE_MATERIAL: 'Delete Material',
       ENROLL_COURSE: 'Enroll Course',
-      SUBMIT_MCQ: 'Submit Quiz'
+      SUBMIT_MCQ: 'Submit Quiz',
+      BALANCE: 'Balance Update'
     };
     return displayNames[action] || action.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
   };

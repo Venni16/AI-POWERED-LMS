@@ -6,10 +6,10 @@ import ToastProvider from '../../components/common/ToastProvider';
 import AppLoader from '../../components/common/AppLoader';
 
 function ClientLayout({ children }: { children: React.ReactNode }) {
-  const { loading } = useAuth();
+  
 
   return (
-    <AppLoader isLoading={loading}>
+    <AppLoader>
       <ToastProvider />
       <div className="min-h-screen bg-white">
         <Navbar />
