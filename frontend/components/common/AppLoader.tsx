@@ -6,26 +6,33 @@ import { Sparkles } from 'lucide-react';
 
 interface AppLoaderProps {
   children: React.ReactNode;
+  isLoading?: boolean; // Optional prop to control loading state externally
 }
 
-const AppLoader: React.FC<AppLoaderProps> = ({ children }) => {
-  const [isLoading, setIsLoading] = useState(true);
-  
-  // Setting total loading time to 3000 milliseconds (3 seconds)
-  const totalLoadingTime = 2500; 
+const AppLoader: React.FC<AppLoaderProps> = ({ children, isLoading }) => {
+  const [internalLoading, setInternalLoading] = useState(true);
+
+  // Use external loading state if provided, otherwise use internal timer
+  const loading = isLoading !== undefined ? isLoading : internalLoading;
+
+  // Setting total loading time to 3000 milliseconds (3 seconds) - only used if no external loading prop
+  const totalLoadingTime = 2500;
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, totalLoadingTime);
+    // Only use timer if no external loading prop is provided
+    if (isLoading === undefined) {
+      const timer = setTimeout(() => {
+        setInternalLoading(false);
+      }, totalLoadingTime);
 
-    return () => clearTimeout(timer);
-  }, []);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading]);
 
   return (
     <>
       <AnimatePresence>
-        {isLoading && (
+        {loading && (
           <motion.div
             key="loader"
             initial={{ opacity: 1 }}
@@ -60,7 +67,7 @@ const AppLoader: React.FC<AppLoaderProps> = ({ children }) => {
       </AnimatePresence>
       
       <AnimatePresence>
-        {!isLoading && (
+        {!loading && (
           <motion.div
             key="content"
             initial={{ opacity: 0, y: 20 }}

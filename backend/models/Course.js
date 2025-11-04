@@ -255,4 +255,86 @@ export class Course {
     if (error) throw error;
     return data;
   }
+
+  static async getRecommendationsForStudent(studentId) {
+    try {
+      // Get student's enrolled courses
+      const enrolledCourses = await this.findEnrolledByStudent(studentId);
+
+      // Get all published courses
+      const allCourses = await this.findPublished();
+
+      // If no enrolled courses, return popular courses
+      if (enrolledCourses.length === 0) {
+        const popularCourses = allCourses
+          .sort((a, b) => b.enrollment_count - a.enrollment_count)
+          .slice(0, 5);
+        return popularCourses;
+      }
+
+      // Prepare data for AI recommendation
+      const enrolledCourseData = enrolledCourses.map(course => ({
+        id: course.id,
+        title: course.title,
+        description: course.description,
+        category: course.category
+      }));
+
+      const allCourseData = allCourses.map(course => ({
+        id: course.id,
+        title: course.title,
+        description: course.description,
+        category: course.category,
+        enrollment_count: course.enrollment_count,
+        instructor: course.instructor,
+        thumbnail_url: course.thumbnail_url,
+        price: course.price,
+        videos: course.videos,
+        materials: course.materials
+      }));
+
+      // Call Python AI service for recommendations
+      const axios = (await import('axios')).default;
+      const PYTHON_SERVER_URL = process.env.PYTHON_SERVER_URL || 'http://localhost:8000';
+
+      const response = await axios.post(`${PYTHON_SERVER_URL}/recommend-courses`, {
+        enrolled_courses: enrolledCourseData,
+        all_courses: allCourseData,
+        top_n: 5
+      });
+
+      if (response.data.success) {
+        // Return the recommended courses with full details
+        const recommendedIds = response.data.recommendations.map(rec => rec.id);
+        const recommendedCourses = allCourses.filter(course => recommendedIds.includes(course.id));
+
+        // Sort by recommendation order
+        const orderedRecommendations = recommendedIds.map(id =>
+          recommendedCourses.find(course => course.id === id)
+        ).filter(Boolean);
+
+        return orderedRecommendations;
+      } else {
+        throw new Error('AI recommendation service failed');
+      }
+
+    } catch (error) {
+      console.error('Error getting course recommendations:', error);
+
+      // Fallback: return popular courses from same categories
+      const enrolledCourses = await this.findEnrolledByStudent(studentId);
+      const enrolledCategories = [...new Set(enrolledCourses.map(c => c.category))];
+
+      const allCourses = await this.findPublished();
+      const categoryMatches = allCourses.filter(course =>
+        enrolledCategories.includes(course.category) &&
+        !enrolledCourses.some(enrolled => enrolled.id === course.id)
+      );
+
+      // Sort by enrollment count and return top 5
+      return categoryMatches
+        .sort((a, b) => b.enrollment_count - a.enrollment_count)
+        .slice(0, 5);
+    }
+  }
 }

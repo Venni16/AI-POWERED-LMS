@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { studentAPI, coursesAPI } from '../../lib/api';
 import { Course } from '../../types';
-import { Search, Filter, Users, DollarSign, BookOpen, Loader2 } from 'lucide-react';
+import { Search, Filter, Users, DollarSign, BookOpen, Loader2, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useToast } from '../../lib/useToast';
 
@@ -14,11 +14,14 @@ export default function CourseCatalog() {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [isEnrolling, setIsEnrolling] = useState<string | null>(null);
+  const [recommendedCourses, setRecommendedCourses] = useState<Course[]>([]);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(true);
   const { showSuccess, showError } = useToast();
 
   useEffect(() => {
     fetchCourses();
     fetchEnrolledCourses();
+    fetchRecommendations();
   }, []);
 
   const fetchCourses = async () => {
@@ -43,12 +46,25 @@ export default function CourseCatalog() {
     }
   };
 
+  const fetchRecommendations = async () => {
+    try {
+      const response = await studentAPI.getRecommendations();
+      setRecommendedCourses(response.data.recommendations);
+    } catch (error) {
+      console.error('Error fetching recommendations:', error);
+    } finally {
+      setLoadingRecommendations(false);
+    }
+  };
+
   const handleEnroll = async (courseId: string) => {
     setIsEnrolling(courseId);
     try {
       await studentAPI.enrollCourse(courseId);
       setEnrolledCourses(prev => [...prev, courseId]);
       showSuccess('Successfully enrolled in the course!');
+      // Refresh recommendations after enrollment
+      fetchRecommendations();
     } catch (error: any) {
       showError(error.response?.data?.error || 'Failed to enroll in course');
     } finally {
@@ -75,6 +91,93 @@ export default function CourseCatalog() {
 
   return (
     <div className="space-y-8">
+      {/* AI Recommendations Section */}
+      {!loadingRecommendations && recommendedCourses.length > 0 && (
+        <div className="bg-gradient-to-r from-purple-50 to-blue-50 shadow-lg rounded-xl border border-purple-200">
+          <div className="px-6 py-5 sm:p-6">
+            <div className="flex items-center mb-6">
+              <Sparkles className="w-6 h-6 text-purple-600 mr-3" />
+              <h3 className="text-xl font-semibold text-gray-900">Top 3 Recommendation for You</h3>
+              <span className="ml-2 text-sm text-purple-600 bg-purple-100 px-2 py-1 rounded-full">
+                AI-Powered
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {recommendedCourses.slice(0, 3).map((course) => {
+                const isEnrolled = enrolledCourses.includes(course.id);
+                const enrolling = isEnrolling === course.id;
+
+                return (
+                  <motion.div
+                    key={`rec-${course.id}`}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4 }}
+                    whileHover={{ y: -4, boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)" }}
+                    className="border border-purple-200 rounded-xl overflow-hidden shadow-md transition-shadow bg-white"
+                  >
+                    {course.thumbnailUrl ? (
+                      <img
+                        src={course.thumbnailUrl}
+                        alt={course.title}
+                        className="w-full h-40 object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-40 bg-gradient-to-br from-purple-100 to-blue-100 flex items-center justify-center">
+                        <BookOpen className="w-10 h-10 text-purple-400" />
+                      </div>
+                    )}
+                    <div className="p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <h4 className="text-base font-semibold text-gray-900 flex-1 line-clamp-2">{course.title}</h4>
+                        <span className="text-sm font-bold text-purple-600 ml-2 shrink-0">
+                          {course.price === 0 ? 'Free' : `$${course.price}`}
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-gray-600 mb-3 line-clamp-2">{course.description}</p>
+
+                      <div className="flex justify-between items-center text-xs text-gray-500 mb-3">
+                        <span className="flex items-center capitalize">
+                          <BookOpen className="w-3 h-3 mr-1" />
+                          {course.category}
+                        </span>
+                        <span className="flex items-center">
+                          <Users className="w-3 h-3 mr-1" />
+                          {course.enrollmentCount}
+                        </span>
+                      </div>
+
+                      <button
+                        onClick={() => handleEnroll(course.id)}
+                        disabled={isEnrolled || enrolling}
+                        className={`w-full py-2 px-3 rounded-lg text-xs font-medium transition-colors shadow-sm flex items-center justify-center space-x-1 ${
+                          isEnrolled
+                            ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                            : 'bg-purple-500 text-white hover:bg-purple-700'
+                        }`}
+                      >
+                        {enrolling ? (
+                          <>
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            <span>Enrolling...</span>
+                          </>
+                        ) : isEnrolled ? (
+                          'Enrolled'
+                        ) : (
+                          'Enroll Now'
+                        )}
+                      </button>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Filters */}
       <div className="bg-white shadow-lg rounded-xl p-6 border border-gray-200">
         <h3 className="text-xl font-semibold text-gray-900 mb-4">Course Filters</h3>
@@ -145,9 +248,9 @@ export default function CourseCatalog() {
                         {course.price === 0 ? 'Free' : `$${course.price}`}
                       </span>
                     </div>
-                    
+
                     <p className="text-sm text-gray-600 mb-4 line-clamp-3">{course.description}</p>
-                    
+
                     <div className="flex justify-between items-center text-xs text-gray-500 mb-4 border-t border-b py-3">
                       <span className="flex items-center capitalize">
                         <BookOpen className="w-3 h-3 mr-1" />

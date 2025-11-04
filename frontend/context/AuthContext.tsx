@@ -72,11 +72,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         } else {
           // No session, check for stored token
-          checkAuth();
+          await checkAuth();
         }
       } catch (error) {
         console.error('Error getting initial session:', error);
-        checkAuth();
+        await checkAuth();
       } finally {
         // Ensure loading is set to false after initialization
         setLoading(false);
@@ -127,14 +127,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const token = localStorage.getItem('token');
       if (token) {
+        console.log('Found stored token, validating...');
         const response = await authAPI.getMe();
+        console.log('Token validation successful, user:', response.data.user.email);
         setUser(response.data.user);
+      } else {
+        console.log('No stored token found');
       }
     } catch (error) {
+      console.error('Token validation failed:', error);
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-    } finally {
-      setLoading(false);
     }
   };
 

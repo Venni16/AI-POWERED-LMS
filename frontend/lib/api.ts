@@ -123,6 +123,7 @@ export const studentAPI = {
   getCourseDetails: (courseId: string) =>
     api.get(`/student/courses/${courseId}`),
   getDashboardStats: () => api.get('/student/dashboard-stats'),
+  getRecommendations: () => api.get('/student/recommendations'),
   // MCQ functions
   getMcqs: (courseId: string) =>
     api.get(`/student/courses/${courseId}/mcqs`),

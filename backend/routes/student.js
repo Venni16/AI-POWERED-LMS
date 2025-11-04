@@ -465,5 +465,23 @@ router.get('/dashboard-stats', async (req, res) => {
   }
 });
 
+// Get course recommendations for student
+router.get('/recommendations', async (req, res) => {
+  try {
+    // Validate user ID
+    if (!req.user.id || req.user.id === 'undefined') {
+      return res.status(400).json({ error: 'Invalid user ID' });
+    }
+
+    const recommendations = await Course.getRecommendationsForStudent(req.user.id);
+
+    res.json({ success: true, recommendations });
+
+  } catch (error) {
+    console.error('Get recommendations error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Use default export
 export default router;
