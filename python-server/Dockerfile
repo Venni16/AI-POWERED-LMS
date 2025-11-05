@@ -15,12 +15,11 @@ COPY requirements.txt .
 RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Clean up pip cache
-RUN pip cache purge
-
+# Copy application code
 COPY . .
 
-EXPOSE 10000  
+# Hugging Face uses port 7860
+EXPOSE 7860
 
-# Use $PORT environment variable that Render provides
-CMD ["python", "-m", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "10000"]
+# Start application
+CMD ["python", "-m", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "7860"]

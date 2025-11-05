@@ -1,3 +1,13 @@
+# Compatibility fix for huggingface_hub - MUST BE AT TOP
+import sys
+try:
+    from huggingface_hub import snapshot_download
+except ImportError:
+    try:
+        from huggingface_hub import cached_download as snapshot_download
+    except ImportError:
+        from huggingface_hub import hf_hub_download as snapshot_download
+        
 from transformers import pipeline
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
