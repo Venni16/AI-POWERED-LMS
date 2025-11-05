@@ -7,6 +7,8 @@ interface VideoPlayerProps {
   onVideoComplete?: (videoId: string) => void;
 }
 
+const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
+
 export default function VideoPlayer({ videoId, courseId, onVideoComplete }: VideoPlayerProps) {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -25,7 +27,7 @@ export default function VideoPlayer({ videoId, courseId, onVideoComplete }: Vide
       setError(null);
 
       // Note: This component relies on the backend API structure defined in lib/api.ts
-      const response = await fetch(`http://localhost:5000/api/video/${videoId}/public-url`);
+      const response = await fetch(`${backendUrl}/api/video/${videoId}/public-url`);
       const data = await response.json();
 
       if (data.success) {
