@@ -48,7 +48,7 @@ export default function VideoPlayer({ videoId, courseId, onVideoComplete }: Vide
 
     try {
       // Note: This component relies on the backend API structure defined in lib/api.ts
-      const response = await fetch(`http://localhost:5000/api/student/courses/${courseId}/videos/${videoId}/complete`, {
+      const response = await fetch(`${backendUrl}/api/student/courses/${courseId}/videos/${videoId}/complete`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
