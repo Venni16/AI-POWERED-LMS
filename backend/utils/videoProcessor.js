@@ -6,7 +6,12 @@ export class VideoProcessor {
       console.log(`Starting AI processing for video ${videoId} at ${videoUrl}`);
 
       // Download video from Supabase
-      const response = await axios.get(videoUrl, { responseType: 'arraybuffer' });
+      const response = await axios.get(videoUrl, {
+        responseType: 'arraybuffer',
+        timeout: 300000, // 5 minutes timeout
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity
+      });
 
       // Create FormData for Python server
       const FormData = (await import('form-data')).default;
@@ -23,13 +28,18 @@ export class VideoProcessor {
 
       // Send to Python server for processing
       const PYTHON_SERVER_URL = process.env.PYTHON_SERVER_URL || 'http://localhost:8000';
+      console.log(`Sending to Python server: ${PYTHON_SERVER_URL}/process-video`);
+
       const pythonResponse = await axios.post(`${PYTHON_SERVER_URL}/process-video`, formData, {
         headers: {
           ...formData.getHeaders()
         },
         maxContentLength: Infinity,
-        maxBodyLength: Infinity
+        maxBodyLength: Infinity,
+        timeout: 600000 // 10 minutes timeout for processing
       });
+
+      console.log('Python server response:', pythonResponse.data);
 
       const { summary, transcript, processing_time } = pythonResponse.data;
 
@@ -46,6 +56,7 @@ export class VideoProcessor {
 
     } catch (error) {
       console.error(`Error processing video ${videoId}:`, error);
+      console.error('Error details:', error.response?.data || error.message);
 
       // Update video status to failed
       const { Video } = await import('../models/Video.js');

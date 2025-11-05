@@ -72,7 +72,8 @@ export class Video {
 
   static async updateStatus(id, status, results = {}) {
     const updates = {
-      status
+      status,
+      updated_at: new Date().toISOString()
     };
 
     if (results.transcript) updates.transcript = results.transcript;
@@ -80,7 +81,7 @@ export class Video {
       updates.summary = results.summary;
       updates.edited_summary = results.summary;
     }
-    if (results.processing_time) updates.processing_time = results.processing_time;
+    if (results.processingTime) updates.processing_time = results.processingTime;
 
     const { data, error } = await supabase
       .from('videos')
