@@ -10,4 +10,4 @@ torchaudio>=2.0.0
 openai-whisper>=20231117
 transformers>=4.35.0
 ffmpeg-python>=0.2.0
-ffmpeg
+
