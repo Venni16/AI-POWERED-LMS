@@ -1,11 +1,15 @@
 [phases.setup]
 cmds = [
     "apt-get update",
-    "apt-get install -y ffmpeg python3.11 python3.11-dev"
+    "apt-get install -y software-properties-common",
+    "add-apt-repository -y ppa:jonathonf/ffmpeg-4",
+    "apt-get update",
+    "apt-get install -y ffmpeg python3.11 python3.11-venv python3.11-dev"
 ]
 
 [phases.install]
 cmds = [
+    "python3.11 -m pip install --upgrade pip",
     "python3.11 -m pip install -r requirements.txt"
 ]
 
