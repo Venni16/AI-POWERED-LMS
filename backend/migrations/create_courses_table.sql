@@ -30,6 +30,7 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
+DROP TRIGGER IF EXISTS update_courses_updated_at ON courses;
 CREATE TRIGGER update_courses_updated_at
     BEFORE UPDATE ON courses
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -75,6 +76,7 @@ CREATE INDEX IF NOT EXISTS idx_videos_course_id ON videos(course_id);
 CREATE INDEX IF NOT EXISTS idx_videos_status ON videos(status);
 CREATE INDEX IF NOT EXISTS idx_videos_created_at ON videos(created_at DESC);
 
+DROP TRIGGER IF EXISTS update_videos_updated_at ON videos;
 CREATE TRIGGER update_videos_updated_at
     BEFORE UPDATE ON videos
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -97,6 +99,7 @@ CREATE TABLE IF NOT EXISTS materials (
 CREATE INDEX IF NOT EXISTS idx_materials_course_id ON materials(course_id);
 CREATE INDEX IF NOT EXISTS idx_materials_created_at ON materials(created_at DESC);
 
+DROP TRIGGER IF EXISTS update_materials_updated_at ON materials;
 CREATE TRIGGER update_materials_updated_at
     BEFORE UPDATE ON materials
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

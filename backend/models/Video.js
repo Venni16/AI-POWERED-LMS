@@ -70,6 +70,7 @@ export class Video {
     return true;
   }
 
+  
   static async updateStatus(id, status, results = {}) {
     const updates = {
       status
