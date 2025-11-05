@@ -198,7 +198,7 @@ if __name__ == "__main__":
         logger.error("CRITICAL: AI dependencies not loaded. Video processing will not work!")
         logger.error("Please check that whisper-openai, transformers, and torch are installed.")
 
-    port = int(os.environ.get("PORT", 8000))
+    port = int(os.environ.get("PORT", 10000))
     uvicorn.run(
         "app:app",
         host="0.0.0.0",
