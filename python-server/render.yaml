@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: vortex-python-ai
+    env: docker
+    plan: free
+    docker:
+      dockerfile: Dockerfile
+    envVars:
+      - key: FRONTEND_URL
+        value: https://vortex-ai-powered-lms.vercel.app
+      - key: BACKEND_URL  
+        value: https://vortex-ai-powered-lms-production.up.railway.app
