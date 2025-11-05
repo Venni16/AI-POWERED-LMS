@@ -72,8 +72,7 @@ export class Video {
 
   static async updateStatus(id, status, results = {}) {
     const updates = {
-      status,
-      updated_at: new Date().toISOString()
+      status
     };
 
     if (results.transcript) updates.transcript = results.transcript;
