@@ -5,7 +5,7 @@ aiofiles==23.2.1
 python-dotenv==1.0.0
 httpx==0.25.2
 sentence-transformers==2.2.2
-scikit-learn==1.3.2
+scikit-learn==1.2.2
 torch==2.0.1 --index-url https://download.pytorch.org/whl/cpu
 torchaudio==2.0.2 --index-url https://download.pytorch.org/whl/cpu
 openai-whisper==20231117
