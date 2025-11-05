@@ -15,7 +15,7 @@ export default function GoogleLoginButton() {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/dashboard`,
+          redirectTo: `${process.env.NEXT_PUBLIC_FRONTEND_URL}/dashboard`,
           // Add these options to potentially speed up the process
           queryParams: {
             access_type: 'offline',

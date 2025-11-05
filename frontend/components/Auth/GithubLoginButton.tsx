@@ -12,7 +12,7 @@ export default function GithubLoginButton() {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'github',
         options: {
-          redirectTo: `${window.location.origin}/dashboard`
+          redirectTo: `${process.env.NEXT_PUBLIC_FRONTEND_URL}/dashboard`
         }
       });
 
