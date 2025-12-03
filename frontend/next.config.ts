@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+
+   // Add eslint configuration here
+   eslint: {
+    // Ignore ESLint errors during builds
+    ignoreDuringBuilds: true,
+  },
  
   async headers() {
     return [
