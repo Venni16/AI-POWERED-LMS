@@ -11,3 +11,4 @@ numpy==1.24.3
 pypdf2==3.0.1
 textract==1.6.5
 python-magic==0.4.27
+pdfplumber==0.10.3
