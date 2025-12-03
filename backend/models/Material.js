@@ -11,7 +11,12 @@ export class Material {
         file_size: materialData.fileSize,
         file_type: materialData.fileType,
         course_id: materialData.courseId,
-        storage_path: materialData.storagePath
+        storage_path: materialData.storagePath,
+        status: materialData.status || 'uploaded',
+        transcript: materialData.transcript || null,
+        summary: materialData.summary || null,
+        edited_summary: materialData.editedSummary || null,
+        processing_time: materialData.processingTime || null
       }])
       .select()
       .single();
@@ -58,5 +63,53 @@ export class Material {
       .getPublicUrl(storagePath);
 
     return data.publicUrl;
+  }
+
+  static async updateStatus(id, status, aiData = {}) {
+    const { data, error } = await supabase
+      .from('materials')
+      .update({
+        status: status,
+        transcript: aiData.transcript || null,
+        summary: aiData.summary || null,
+        processing_time: aiData.processing_time || null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  static async updateSummary(id, summary) {
+    const { data, error } = await supabase
+      .from('materials')
+      .update({
+        edited_summary: summary,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  static async updateStoragePath(id, storagePath) {
+    const { data, error } = await supabase
+      .from('materials')
+      .update({
+        storage_path: storagePath,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 }

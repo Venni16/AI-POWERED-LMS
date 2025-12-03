@@ -4,6 +4,7 @@ import { User } from '../models/User.js';
 import { Course } from '../models/Course.js';
 import { AuditLog } from '../models/AuditLog.js';
 import { supabase } from '../lib/supabase.js';
+import { generateRevenueReportPdf } from '../utils/pdfGenerator.js';
 
 const router = express.Router();
 
@@ -105,6 +106,113 @@ router.get('/dashboard', async (req, res) => {
   } catch (error) {
     console.error('Admin dashboard error:', error);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Get revenue report
+router.get('/reports/revenue', async (req, res) => {
+  try {
+    // Fetch successful payments
+    const { data: payments, error: paymentsError } = await supabase
+      .from('payments')
+      .select(`
+        amount,
+        course:courses(id, title, price)
+      `)
+      .eq('status', 'succeeded');
+
+    if (paymentsError) throw paymentsError;
+
+    let totalRevenue = 0;
+    const courseRevenueMap = {};
+
+    payments.forEach(p => {
+      totalRevenue += p.amount;
+      const courseId = p.course.id;
+      
+      if (!courseRevenueMap[courseId]) {
+        courseRevenueMap[courseId] = {
+          title: p.course.title,
+          purchases: 0,
+          revenue: 0
+        };
+      }
+      
+      courseRevenueMap[courseId].purchases += 1;
+      courseRevenueMap[courseId].revenue += p.amount;
+    });
+
+    const courseReports = Object.values(courseRevenueMap).sort((a, b) => b.revenue - a.revenue);
+
+    res.json({
+      success: true,
+      totalRevenue: totalRevenue,
+      courseReports: courseReports
+    });
+
+  } catch (error) {
+    console.error('Admin revenue report error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// NEW: Download Revenue Report as PDF
+router.get('/reports/revenue/download-pdf', async (req, res) => {
+  try {
+    // 1. Fetch the raw report data (same logic as /reports/revenue)
+    const { data: payments, error: paymentsError } = await supabase
+      .from('payments')
+      .select(`
+        amount,
+        course:courses(id, title, price)
+      `)
+      .eq('status', 'succeeded');
+
+    if (paymentsError) throw paymentsError;
+
+    let totalRevenue = 0;
+    const courseRevenueMap = {};
+
+    payments.forEach(p => {
+      totalRevenue += p.amount;
+      const courseId = p.course.id;
+      
+      if (!courseRevenueMap[courseId]) {
+        courseRevenueMap[courseId] = {
+          title: p.course.title,
+          purchases: 0,
+          revenue: 0
+        };
+      }
+      
+      courseRevenueMap[courseId].purchases += 1;
+      courseRevenueMap[courseId].revenue += p.amount;
+    });
+
+    const courseReports = Object.values(courseRevenueMap).sort((a, b) => b.revenue - a.revenue);
+
+    const reportData = {
+      totalRevenue: totalRevenue,
+      courseReports: courseReports
+    };
+
+    // 2. Generate PDF
+    const pdfStream = await generateRevenueReportPdf(reportData);
+
+    // 3. Set headers and pipe stream
+    const filename = `Vortex_Revenue_Report_${new Date().toISOString().slice(0, 10)}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    
+    pdfStream.pipe(res);
+
+    await createAuditLog(req, 'DOWNLOAD_REVENUE_REPORT', 'REPORT', { format: 'PDF' });
+
+  } catch (error) {
+    console.error('Admin PDF report download error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to generate PDF report' });
+    }
   }
 });
 

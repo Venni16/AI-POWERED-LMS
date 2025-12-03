@@ -150,4 +150,84 @@ async function checkCourseAccess(course, userId) {
   return false;
 }
 
+import fs from 'fs';
+import path from 'path';
+
+function sanitizeFilename(filename) {
+  // Remove or replace invalid characters for HTTP headers
+  // RFC 6266 allows US-ASCII characters excluding control characters and some specials.
+  // Replace any character except alphanumerics, spaces, dots, dashes, and underscores with underscore.
+  return filename.replace(/[^a-zA-Z0-9 ._-]/g, '_');
+}
+
+router.get('/:videoId/download-summary', authenticate, async (req, res) => {
+  try {
+    const videoId = req.params.videoId;
+    const video = await Video.findById(videoId);
+
+    if (!video) {
+      return res.status(404).json({ error: 'Video not found' });
+    }
+
+    // Check access to course
+    const course = await Course.findById(video.course_id);
+    const hasAccess = await checkCourseAccess(course, req.user.id);
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const summary = video.edited_summary || video.summary;
+    if (!summary) {
+      return res.status(404).json({ error: 'No summary available for this video' });
+    }
+
+    // Construct filename: course title - video title Summary.txt
+    let filename = `${course.title} - ${video.title} Summary.txt`;
+    filename = sanitizeFilename(filename);
+
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', 'text/plain');
+    res.send(summary);
+
+  } catch (error) {
+    console.error('Download video summary error:', error);
+    res.status(500).json({ error: 'Failed to download video summary' });
+  }
+});
+
+router.get('/:videoId/download-transcript', authenticate, async (req, res) => {
+  try {
+    const videoId = req.params.videoId;
+    const video = await Video.findById(videoId);
+
+    if (!video) {
+      return res.status(404).json({ error: 'Video not found' });
+    }
+
+    // Check access to course
+    const course = await Course.findById(video.course_id);
+    const hasAccess = await checkCourseAccess(course, req.user.id);
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const transcript = video.transcript;
+    if (!transcript) {
+      return res.status(404).json({ error: 'No transcript available for this video' });
+    }
+
+    // Construct filename: course title - video title Transcript.txt
+    let filename = `${course.title} - ${video.title} Transcript.txt`;
+    filename = sanitizeFilename(filename);
+
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', 'text/plain');
+    res.send(transcript);
+
+  } catch (error) {
+    console.error('Download video transcript error:', error);
+    res.status(500).json({ error: 'Failed to download video transcript' });
+  }
+});
+
 export default router;

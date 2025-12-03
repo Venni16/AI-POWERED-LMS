@@ -3,6 +3,7 @@ import { authenticate, authorize, createAuditLog } from '../middleware/auth.js';
 import { Course } from '../models/Course.js';
 import { User } from '../models/User.js';
 import { Mcq } from '../models/Mcq.js';
+import { Payment } from '../models/Payment.js'; // Import Payment model
 
 const router = express.Router();
 
@@ -102,51 +103,61 @@ router.get('/my-courses', async (req, res) => {
   }
 });
 
-// Get course details (only if enrolled)
 router.get('/courses/:courseId', async (req, res) => {
   try {
     // Validate user ID and course ID
     if (!req.user.id || req.user.id === 'undefined') {
+      console.log(`[DEBUG] Invalid user ID: ${req.user.id}`);
       return res.status(400).json({ error: 'Invalid user ID' });
     }
     if (!req.params.courseId || req.params.courseId === 'undefined') {
+      console.log(`[DEBUG] Invalid course ID: ${req.params.courseId}`);
       return res.status(400).json({ error: 'Invalid course ID' });
     }
 
+    const courseIdParam = req.params.courseId;
+    console.log(`[DEBUG] Fetch course details for userId: ${req.user.id}, courseIdParam: ${courseIdParam}`);
+
     // Check if courseId is a UUID or slug
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(req.params.courseId);
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(courseIdParam);
     let course;
+    let actualCourseId;
 
     if (isUUID) {
-      // Check if user is enrolled in the course
-      const { Enrollment } = await import('../models/Enrollment.js');
-      const enrollment = await Enrollment.findByStudentAndCourse(req.user.id, req.params.courseId);
-
-      if (!enrollment) {
-        return res.status(404).json({ error: 'Course not found or access denied' });
-      }
-
-      course = await Course.findById(req.params.courseId);
+      course = await Course.findById(courseIdParam);
+      actualCourseId = courseIdParam;
+      console.log(`[DEBUG] Identified as UUID, course found: ${!!course}`);
     } else {
       // It's a slug, find by slug
-      course = await Course.findBySlug(req.params.courseId);
+      course = await Course.findBySlug(courseIdParam);
 
-      // Check if user is enrolled in the course
-      const { Enrollment } = await import('../models/Enrollment.js');
-      const enrollment = await Enrollment.findByStudentAndCourse(req.user.id, course.id);
-
-      if (!enrollment) {
-        return res.status(404).json({ error: 'Course not found or access denied' });
+      if (!course) {
+        console.log('[DEBUG] Course not found by slug');
+        return res.status(404).json({ error: 'Course not found' });
       }
+      actualCourseId = course.id;
+      console.log('[DEBUG] Course found by slug, id:', actualCourseId);
     }
 
     if (!course || !course.is_published) {
+      console.log('[DEBUG] Course not found or is not published');
       return res.status(404).json({ error: 'Course not found or access denied' });
+    }
+
+    // Check if user is enrolled in the course
+    const { Enrollment } = await import('../models/Enrollment.js');
+    const enrollment = await Enrollment.findByStudentAndCourse(req.user.id, actualCourseId);
+    console.log(`[DEBUG] Enrollment found: ${!!enrollment}`);
+
+    if (!enrollment) {
+      console.log(`[DEBUG] Enrollment not found for this user and course. userId: ${req.user.id}, courseId: ${actualCourseId}`);
+      return res.status(403).json({ error: 'You are not enrolled in this course' });
     }
 
     // Transform course to match frontend expectations
     const transformedCourse = {
       ...course,
+      thumbnailUrl: course.thumbnail_url,
       videos: course.videos?.map(video => ({
         ...video,
         uploadDate: video.created_at
@@ -171,13 +182,31 @@ router.post('/courses/:courseId/videos/:videoId/complete', async (req, res) => {
     if (!req.params.courseId || req.params.courseId === 'undefined') {
       return res.status(400).json({ error: 'Invalid course ID' });
     }
-    if (!req.params.videoId || req.params.videoId === 'undefined') {
-      return res.status(400).json({ error: 'Invalid video ID' });
+
+    const courseIdParam = req.params.courseId;
+    // Check if courseId is a UUID or slug
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(courseIdParam);
+    let course;
+    let actualCourseId;
+
+    if (isUUID) {
+      course = await Course.findById(courseIdParam);
+      actualCourseId = courseIdParam;
+    } else {
+      course = await Course.findBySlug(courseIdParam);
+      if (!course) {
+        return res.status(404).json({ error: 'Course not found or access denied' });
+      }
+      actualCourseId = course.id;
+    }
+
+    if (!course || !course.is_published) {
+      return res.status(404).json({ error: 'Course not found or access denied' });
     }
 
     // Check if user is enrolled in the course
     const { Enrollment } = await import('../models/Enrollment.js');
-    const enrollment = await Enrollment.findByStudentAndCourse(req.user.id, req.params.courseId);
+    const enrollment = await Enrollment.findByStudentAndCourse(req.user.id, actualCourseId);
 
     if (!enrollment) {
       return res.status(404).json({ error: 'Enrollment not found or access denied' });
@@ -187,7 +216,7 @@ router.post('/courses/:courseId/videos/:videoId/complete', async (req, res) => {
     const { Video } = await import('../models/Video.js');
     const video = await Video.findById(req.params.videoId);
 
-    if (!video || video.course_id !== req.params.courseId) {
+    if (!video || video.course_id !== actualCourseId) {
       return res.status(404).json({ error: 'Video not found in this course' });
     }
 
@@ -196,7 +225,7 @@ router.post('/courses/:courseId/videos/:videoId/complete', async (req, res) => {
     const progress = await StudentVideoProgress.upsert(
       req.user.id,
       req.params.videoId,
-      req.params.courseId,
+      actualCourseId,
       true
     );
 
@@ -219,9 +248,30 @@ router.get('/courses/:courseId/progress', async (req, res) => {
       return res.status(400).json({ error: 'Invalid course ID' });
     }
 
+    const courseIdParam = req.params.courseId;
+    // Check if courseId is a UUID or slug
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(courseIdParam);
+    let course;
+    let actualCourseId;
+
+    if (isUUID) {
+      course = await Course.findById(courseIdParam);
+      actualCourseId = courseIdParam;
+    } else {
+      course = await Course.findBySlug(courseIdParam);
+      if (!course) {
+        return res.status(404).json({ error: 'Course not found or access denied' });
+      }
+      actualCourseId = course.id;
+    }
+
+    if (!course || !course.is_published) {
+      return res.status(404).json({ error: 'Course not found or access denied' });
+    }
+
     // Check if user is enrolled in the course
     const { Enrollment } = await import('../models/Enrollment.js');
-    const enrollment = await Enrollment.findByStudentAndCourse(req.user.id, req.params.courseId);
+    const enrollment = await Enrollment.findByStudentAndCourse(req.user.id, actualCourseId);
 
     if (!enrollment) {
       return res.status(404).json({ error: 'Enrollment not found or access denied' });
@@ -229,10 +279,9 @@ router.get('/courses/:courseId/progress', async (req, res) => {
 
     // Get progress data
     const { StudentVideoProgress } = await import('../models/StudentVideoProgress.js');
-    const progressData = await StudentVideoProgress.findByStudentAndCourse(req.user.id, req.params.courseId);
+    const progressData = await StudentVideoProgress.findByStudentAndCourse(req.user.id, actualCourseId);
 
     // Get total videos in course
-    const course = await Course.findById(req.params.courseId);
     const totalVideos = course.videos?.length || 0;
     const completedVideos = progressData.filter(p => p.completed).length;
 
@@ -262,19 +311,40 @@ router.get('/courses/:courseId/mcqs', async (req, res) => {
       return res.status(400).json({ error: 'Invalid course ID' });
     }
 
+    const courseIdParam = req.params.courseId;
+    // Check if courseId is a UUID or slug
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(courseIdParam);
+    let course;
+    let actualCourseId;
+
+    if (isUUID) {
+      course = await Course.findById(courseIdParam);
+      actualCourseId = courseIdParam;
+    } else {
+      course = await Course.findBySlug(courseIdParam);
+      if (!course) {
+        return res.status(404).json({ error: 'Course not found or access denied' });
+      }
+      actualCourseId = course.id;
+    }
+
+    if (!course || !course.is_published) {
+      return res.status(404).json({ error: 'Course not found or access denied' });
+    }
+
     // Check if user is enrolled in the course
     const { Enrollment } = await import('../models/Enrollment.js');
-    const enrollment = await Enrollment.findByStudentAndCourse(req.user.id, req.params.courseId);
+    const enrollment = await Enrollment.findByStudentAndCourse(req.user.id, actualCourseId);
 
     if (!enrollment) {
       return res.status(404).json({ error: 'Course not found or access denied' });
     }
 
-    const mcqs = await Mcq.findByCourseId(req.params.courseId);
+    const mcqs = await Mcq.findByCourseId(actualCourseId);
 
     // Get quiz attempt information
     const { QuizAttempt } = await import('../models/QuizAttempt.js');
-    const attempts = await QuizAttempt.findByStudentAndCourse(req.user.id, req.params.courseId);
+    const attempts = await QuizAttempt.findByStudentAndCourse(req.user.id, actualCourseId);
     const attemptCount = attempts.length;
     const canRetake = attemptCount < 3;
 
@@ -321,9 +391,30 @@ router.post('/courses/:courseId/mcqs/submit', async (req, res) => {
       return res.status(400).json({ error: 'Invalid course ID' });
     }
 
+    const courseIdParam = req.params.courseId;
+    // Check if courseId is a UUID or slug
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(courseIdParam);
+    let course;
+    let actualCourseId;
+
+    if (isUUID) {
+      course = await Course.findById(courseIdParam);
+      actualCourseId = courseIdParam;
+    } else {
+      course = await Course.findBySlug(courseIdParam);
+      if (!course) {
+        return res.status(404).json({ error: 'Course not found or access denied' });
+      }
+      actualCourseId = course.id;
+    }
+
+    if (!course || !course.is_published) {
+      return res.status(404).json({ error: 'Course not found or access denied' });
+    }
+
     // Check if user is enrolled in the course
     const { Enrollment } = await import('../models/Enrollment.js');
-    const enrollment = await Enrollment.findByStudentAndCourse(req.user.id, req.params.courseId);
+    const enrollment = await Enrollment.findByStudentAndCourse(req.user.id, actualCourseId);
 
     if (!enrollment) {
       return res.status(404).json({ error: 'Course not found or access denied' });
@@ -336,7 +427,7 @@ router.post('/courses/:courseId/mcqs/submit', async (req, res) => {
     }
 
     // Get all MCQs for the course
-    const mcqs = await Mcq.findByCourseId(req.params.courseId);
+    const mcqs = await Mcq.findByCourseId(actualCourseId);
 
     let correctCount = 0;
     let totalCount = mcqs.length;
@@ -363,7 +454,7 @@ router.post('/courses/:courseId/mcqs/submit', async (req, res) => {
 
     // Check current attempt count
     const { QuizAttempt } = await import('../models/QuizAttempt.js');
-    const currentAttempts = await QuizAttempt.countAttemptsByStudentAndCourse(req.user.id, req.params.courseId);
+    const currentAttempts = await QuizAttempt.countAttemptsByStudentAndCourse(req.user.id, actualCourseId);
 
     if (currentAttempts >= 3) {
       return res.status(400).json({ error: 'Maximum quiz attempts (3) reached for this course' });
@@ -373,7 +464,7 @@ router.post('/courses/:courseId/mcqs/submit', async (req, res) => {
     const attemptNumber = currentAttempts + 1;
     const attempt = await QuizAttempt.create({
       studentId: req.user.id,
-      courseId: req.params.courseId,
+      courseId: actualCourseId,
       attemptNumber: attemptNumber,
       score: Math.round(score),
       totalQuestions: totalCount,
@@ -381,7 +472,7 @@ router.post('/courses/:courseId/mcqs/submit', async (req, res) => {
     });
 
     await createAuditLog(req, 'SUBMIT_MCQ', 'MCQ', {
-      courseId: req.params.courseId,
+      courseId: actualCourseId,
       attemptNumber: attemptNumber,
       score: Math.round(score),
       totalQuestions: totalCount,
@@ -391,14 +482,11 @@ router.post('/courses/:courseId/mcqs/submit', async (req, res) => {
     // Award achievement if student gets full marks
     let achievement = null;
     if (score === 100 && totalCount > 0) {
-      // Get course details for achievement description
-      const course = await Course.findById(req.params.courseId);
-
       // Create achievement record
       const { Achievement } = await import('../models/Achievement.js');
       achievement = await Achievement.create({
         studentId: req.user.id,
-        courseId: req.params.courseId,
+        courseId: actualCourseId,
         type: 'QUIZ_PERFECT',
         title: 'Perfect Quiz Score',
         description: `Achieved 100% on ${course.title} quiz`
@@ -510,6 +598,51 @@ router.get('/recommendations', async (req, res) => {
   } catch (error) {
     console.error('Get recommendations error:', error);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Get student payment history
+router.get('/payments', async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    const { supabase } = await import('../lib/supabase.js');
+    
+    const { data: payments, error } = await supabase
+      .from('payments')
+      .select(`
+        *,
+        course:courses(id, title, slug, thumbnail_url, price)
+      `)
+      .eq('user_id', userId)
+      .eq('status', 'succeeded') // Only show successful payments
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    // Transform data to camelCase
+    const transformedPayments = payments.map(p => ({
+      id: p.id,
+      courseId: p.course_id,
+      amount: p.amount,
+      currency: p.currency,
+      status: p.status,
+      stripeSessionId: p.stripe_session_id,
+      createdAt: p.created_at,
+      course: {
+        id: p.course.id,
+        title: p.course.title,
+        slug: p.course.slug,
+        thumbnailUrl: p.course.thumbnail_url,
+        price: p.course.price
+      }
+    }));
+
+    res.json({ success: true, payments: transformedPayments });
+
+  } catch (error) {
+    console.error('Get payments error:', error);
+    res.status(500).json({ error: 'Failed to fetch payment history' });
   }
 });
 

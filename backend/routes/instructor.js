@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import axios from 'axios';
 import fs from 'fs/promises';
 import { authenticate, authorize, createAuditLog } from '../middleware/auth.js';
+import { MaterialProcessor } from '../utils/materialProcessor.js';
 import { Course } from '../models/Course.js';
 import { Video } from '../models/Video.js';
 import { Material } from '../models/Material.js';
@@ -382,7 +383,8 @@ router.post('/courses/:courseId/materials', materialUpload.single('material'), a
       fileSize: req.file.size,
       fileType: req.file.mimetype,
       courseId: course.id,
-      storagePath: req.file.path
+      storagePath: req.file.path,
+      status: 'processing' // Start with processing status
     };
 
     const material = await Material.create(materialData);
@@ -391,7 +393,14 @@ router.post('/courses/:courseId/materials', materialUpload.single('material'), a
       courseId: course.id, materialId: material.id
     });
 
-    res.status(201).json({ success: true, material });
+    // Process material with AI in background
+    MaterialProcessor.processMaterialInBackground(material.id, req.file.path, req.file.mimetype);
+
+    res.status(201).json({ 
+      success: true, 
+      material,
+      message: 'Material uploaded. AI processing started...'
+    });
 
   } catch (error) {
     console.error('Upload material error:', error);
@@ -399,6 +408,44 @@ router.post('/courses/:courseId/materials', materialUpload.single('material'), a
   }
 });
 
+// Add endpoint to update material summary
+router.put('/courses/:courseId/materials/:materialId/summary', async (req, res) => {
+  try {
+    const course = await Course.findById(req.params.courseId);
+
+    if (!course || course.instructor_id !== req.user.id) {
+      return res.status(404).json({ error: 'Course not found' });
+    }
+
+    const material = await Material.findById(req.params.materialId);
+
+    if (!material || material.course_id !== req.params.courseId) {
+      return res.status(404).json({ error: 'Material not found' });
+    }
+
+    const { summary } = req.body;
+
+    if (!summary) {
+      return res.status(400).json({ error: 'Summary is required' });
+    }
+
+    await Material.updateSummary(req.params.materialId, summary);
+
+    await createAuditLog(req, 'UPDATE_SUMMARY', 'MATERIAL', {
+      courseId: course.id, materialId: material.id
+    });
+
+    const updatedMaterial = await Material.findById(req.params.materialId);
+    res.json({
+      success: true,
+      material: updatedMaterial
+    });
+
+  } catch (error) {
+    console.error('Update material summary error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 // Get enrolled students for a course
 router.get('/courses/:courseId/students', async (req, res) => {
   try {

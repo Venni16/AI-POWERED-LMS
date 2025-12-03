@@ -12,6 +12,8 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "@stripe/stripe-js": "^8.5.3",
     "@supabase/supabase-js": "^2.76.1",
     "axios": "^1.12.2",
     "bcryptjs": "^3.0.2",
@@ -25,6 +27,8 @@
     "mongoose": "^8.19.2",
     "multer": "^2.0.2",
     "nodemon": "^3.1.10",
-    "socket.io": "^4.8.1"
+    "pdfkit": "^0.17.2",
+    "socket.io": "^4.8.1",
+    "stripe": "^20.0.0"
   }
 }

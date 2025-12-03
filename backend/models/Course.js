@@ -50,13 +50,7 @@ export class Course {
       .eq('id', id)
       .single();
 
-    if (error) throw error;
-
-    // Sort videos by created_at ascending (upload order)
-    if (data.videos) {
-      data.videos.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-    }
-
+    if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "not found"
     return data;
   }
 
@@ -76,13 +70,7 @@ export class Course {
       .eq('slug', slug)
       .single();
 
-    if (error) throw error;
-
-    // Sort videos by created_at ascending (upload order)
-    if (data.videos) {
-      data.videos.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-    }
-
+    if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "not found"
     return data;
   }
 

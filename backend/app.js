@@ -17,6 +17,9 @@ import coursesRoutes from './routes/courses.js';
 import videoRoutes from './routes/video.js';
 import debugRoutes from './routes/debug.js';
 import chatRoutes from './routes/chat.js';
+import chatbotRoutes from './routes/chatbot.js';
+import materialRoutes from './routes/material.js';
+import paymentRoutes from './routes/payment.js'; // Import new payment route
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -40,6 +43,12 @@ app.use(cors({
   origin: [FRONTEND_URL, 'http://192.168.40.1:3000'],
   credentials: true
 }));
+
+// 1. Stripe Webhook needs raw body. Mount the payment router first.
+// The /webhook route inside paymentRoutes uses express.raw() and must run before express.json().
+app.use('/api/payment', paymentRoutes);
+
+// 2. Apply general JSON parsing middleware to all other routes
 app.use(express.json());
 app.use('/uploads', express.static('uploads'));
 
@@ -55,10 +64,45 @@ const ensureUploadDirs = async () => {
   }
 };
 
+// Add material routes to the routes section
+app.use('/api/material', materialRoutes);
+
+// Update health check to include material summarizer status
+app.get('/health', async (req, res) => {
+  try {
+    // Check material summarizer service
+    const materialSummarizerUrl = process.env.MATERIAL_SUMMARIZER_URL || 'http://localhost:7861';
+    let materialSummarizerStatus = 'unknown';
+    
+    try {
+      const response = await fetch(`${materialSummarizerUrl}/health`);
+      if (response.ok) {
+        const data = await response.json();
+        materialSummarizerStatus = data.status;
+      }
+    } catch (error) {
+      materialSummarizerStatus = 'unreachable';
+    }
+
+    res.json({
+      status: 'OK',
+      message: 'AI LMS API is running',
+      database: 'Connected to Supabase',
+      materialSummarizer: materialSummarizerStatus
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'ERROR',
+      message: 'Health check failed',
+      error: error.message
+    });
+  }
+});
+
 // Make io accessible in routes
 app.set('io', io);
 
-// Routes
+// Routes (excluding payment which is already mounted)
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/instructor', instructorRoutes);
@@ -67,9 +111,9 @@ app.use('/api/courses', coursesRoutes);
 app.use('/api/video', videoRoutes);
 app.use('/api/debug', debugRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/chatbot', chatbotRoutes);
 
-// Health check route
-
+// Health check route (re-defined for clarity, though the one above is more detailed)
 app.get('/health', (req, res) => {
   res.json({
     status: 'OK',
