@@ -168,7 +168,7 @@ export default function MaterialUploader() {
           <button
             type="submit"
             disabled={!formData.material || !selectedCourse || uploading}
-            className="w-full bg-black text-white py-3 px-4 rounded-lg font-medium hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md"
+            className="w-full bg-black text-white py-3 px-4 rounded-lg font-medium hover:cursor-pointer hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md"
           >
             {uploading ? 'Uploading...' : 'Upload Material'}
           </button>

@@ -6,9 +6,9 @@ import ProtectedRoute from '../../../../../components/common/ProtectedRoute';
 import VideoPlayer from '../../../../../components/common/VideoPlayer';
 import Chat from '../../../../../components/common/Chat';
 import McqQuiz from '../../../../../components/student/McqQuiz';
-import { studentAPI } from '../../../../../lib/api';
+import { studentAPI, instructorAPI } from '../../../../../lib/api';
 import { Course, Video, User, Mcq } from '../../../../../types';
-import { BookOpen, Video as VideoIcon, FileText, MessageSquare, HelpCircle, Loader2, ChevronDown, ChevronUp, CheckCircle } from 'lucide-react';
+import { BookOpen, Video as VideoIcon, FileText, MessageSquare, HelpCircle, Loader2, ChevronDown, ChevronUp, CheckCircle, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function CourseDetailPage() {
@@ -26,6 +26,93 @@ export default function CourseDetailPage() {
   const [isTranscriptExpanded, setIsTranscriptExpanded] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [showQuiz, setShowQuiz] = useState(false);
+  const [activeMaterial, setActiveMaterial] = useState<any | null>(null);
+  const [materialSummary, setMaterialSummary] = useState<string>('');
+
+  // Download handler for video summary or transcript
+  const downloadVideoFile = async (videoId: string, type: 'summary' | 'transcript') => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('No authentication token found');
+        return;
+      }
+      const endpoint = `${process.env.NEXT_PUBLIC_API_BASE_URL}/video/${videoId}/download-${type}`;
+      const response = await fetch(endpoint, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        throw new Error(`Download failed: ${response.status}`);
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = '';
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="(.+)"/);
+        if (match && match[1]) filename = match[1];
+      }
+      // Fallback filename if needed
+      if (!filename && activeVideo) {
+        const suffix = type === 'summary' ? 'Summary' : 'Transcript';
+        filename = `${course?.title || ''} - ${activeVideo.title} ${suffix}.txt`;
+      }
+      filename = filename || 'download.txt';
+
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Download error:', error);
+    }
+  };
+
+  // Download handler for material summary
+  const downloadMaterialSummary = async (materialId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('No authentication token found');
+        return;
+      }
+      const endpoint = `${process.env.NEXT_PUBLIC_API_BASE_URL}/material/${materialId}/download-summary`;
+      const response = await fetch(endpoint, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        throw new Error(`Download failed: ${response.status}`);
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = '';
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="(.+)"/);
+        if (match && match[1]) filename = match[1];
+      }
+      const material = course?.materials?.find(m => m.id === materialId);
+      if (!filename && material) {
+        filename = `${course?.title || ''} - ${material.title} Summary.txt`;
+      }
+      filename = filename || 'download.txt';
+
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Download error:', error);
+    }
+  };
 
   useEffect(() => {
     if (courseId && typeof courseId === 'string') {
@@ -90,6 +177,23 @@ export default function CourseDetailPage() {
     fetchCourseDetails();
   };
 
+  const handleMaterialClick = async (material: any) => {
+    setActiveMaterial(material);
+    if (material.status === 'completed') {
+      try {
+        const response = await instructorAPI.getMaterialSummary(material.id);
+        if (response.data.success) {
+          setMaterialSummary(response.data.material.edited_summary || response.data.material.summary || 'No summary available.');
+        } else {
+          setMaterialSummary('Failed to load summary.');
+        }
+      } catch (error) {
+        console.error('Failed to fetch material summary:', error);
+        setMaterialSummary('Failed to load summary.');
+      }
+    }
+  };
+
   if (loading) {
     return (
       <ProtectedRoute allowedRoles={['student']}>
@@ -121,8 +225,8 @@ export default function CourseDetailPage() {
           <div className="px-4 sm:px-0 mb-8">
             <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
               <button
-                onClick={() => router.back()}
-                className="flex items-center text-black hover:underline transition-colors mb-4 text-sm font-medium"
+                onClick={() => router.push('/student?tab=my-courses')}
+                className="flex items-center text-black hover:underline transition-colors mb-4 text-sm font-medium hover:cursor-pointer"
               >
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -130,13 +234,19 @@ export default function CourseDetailPage() {
                 Back to My Courses
               </button>
               <div className="flex flex-col md:flex-row md:items-start space-y-4 md:space-y-0 md:space-x-6">
-                {course.thumbnailUrl && (
-                  <img
-                    src={course.thumbnailUrl}
-                    alt={course.title}
-                    className="w-full md:w-64 h-40 object-cover rounded-lg shadow-md"
-                  />
-                )}
+                <div className="flex-shrink-0">
+                  {course.thumbnailUrl ? (
+                    <img
+                      src={course.thumbnailUrl}
+                      alt={course.title}
+                      className="w-full md:w-64 h-40 object-cover rounded-lg shadow-md"
+                    />
+                  ) : (
+                    <div className="w-full md:w-64 h-40 bg-gray-100 rounded-lg flex items-center justify-center">
+                      <BookOpen className="w-16 h-16 text-gray-400" />
+                    </div>
+                  )}
+                </div>
                 <div className="flex-1">
                   <h1 className="text-3xl font-bold text-gray-900 mb-2">{course.title}</h1>
                   <p className="text-gray-600 mb-4">{course.description}</p>
@@ -160,7 +270,7 @@ export default function CourseDetailPage() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 px-4 sm:px-0">
-            {/* Main Content (Video Player & Summary) */}
+            {/* Main Content (Video Player, Material Summary & Summary) */}
             <div className="lg:col-span-2 space-y-6">
               {/* Video Player */}
               <div className="bg-white rounded-xl shadow-lg border border-gray-200">
@@ -207,26 +317,68 @@ export default function CourseDetailPage() {
                 </div>
               </div>
 
-              {/* AI Summary Section */}
-              {activeVideo && activeVideo.status === 'completed' && (
+              {/* Material Summary Section */}
+              {activeMaterial && activeMaterial.status === 'completed' && (
                 <div className="bg-white rounded-xl shadow-lg border border-gray-200">
-                  <div className="p-4 border-b border-gray-200">
-                    <h3 className="text-xl font-semibold text-gray-900">AI Summary & Transcript</h3>
+                  <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+                    <h3 className="text-xl font-semibold text-gray-900">Material AI Summary</h3>
+                    <button
+                      onClick={() => downloadMaterialSummary(activeMaterial.id)}
+                      title="Download material summary"
+                      className="flex items-center border p-2 rounded-2xl font-medium hover:bg-gray-800 bg-black text-sm text-white hover:cursor-pointer shadow-md hover:shadow-lg transition-colors"
+                    >
+                      <Download className="w-3 h-3 mr-1 font-medium" /> Download Summary
+                    </button>
                   </div>
                   <div className="p-6">
                     <h4 className="text-lg font-medium text-gray-800 mb-3">Summary</h4>
                     <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                       <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">
-                        {activeVideo.editedSummary || activeVideo.summary || 'No summary available.'}
+                        {materialSummary || 'No summary available.'}
                       </p>
                     </div>
-                    
+                  </div>
+                </div>
+              )}
+
+              {/* AI Summary Section */}
+              {activeVideo && activeVideo.status === 'completed' && (
+                <div className="bg-white rounded-xl shadow-lg border border-gray-200">
+                  <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+                    <h3 className="text-xl font-semibold text-gray-900">Video AI Summary & Transcript</h3>
+                    <div className="flex space-x-4">
+                      <button
+                        onClick={() => downloadVideoFile(activeVideo.id, 'summary')}
+                        title="Download video summary"
+                        className="flex items-center border p-2 rounded-2xl font-medium bg-black text-sm text-white hover:cursor-pointer shadow-md hover:shadow-lg transition-colors"
+                      >
+                        <Download className="w-3 h-3 mr-1" /> Download Summary
+                      </button>
+                      {activeVideo.transcript && (
+                        <button
+                          onClick={() => downloadVideoFile(activeVideo.id, 'transcript')}
+                          title="Download video transcript"
+                          className="flex items-center border p-2 rounded-2xl font-medium bg-black text-sm text-white hover:cursor-pointer shadow-md hover:shadow-lg transition-colors"
+                        >
+                          <Download className="w-3 h-3 mr-1" /> Download Transcript
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="p-6">
+                    <h4 className="text-lg font-medium text-gray-800 mb-3">Summary</h4>
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                    <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">
+                      {activeVideo.editedSummary || activeVideo.summary || 'No summary available.'}
+                    </p>
+                  </div>
+
                     {/* Transcript Section */}
                     {activeVideo.transcript && (
                       <div className="mt-6">
                         <button
                           onClick={() => setIsTranscriptExpanded(!isTranscriptExpanded)}
-                          className="flex items-center text-black hover:underline transition-colors mb-3 font-medium"
+                          className="flex items-center text-black hover:underline transition-colors mb-3 font-medium hover:cursor-pointer"
                         >
                           Full Transcript
                           {isTranscriptExpanded ? (
@@ -273,7 +425,7 @@ export default function CourseDetailPage() {
                         setExpandedVideo(null);
                         setIsTranscriptExpanded(false);
                       }}
-                      className={`w-full text-left p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors last:border-b-0 ${
+                      className={`w-full text-left p-4 border-b border-gray-100 hover:bg-gray-50 hover:cursor-pointer transition-colors last:border-b-0 ${
                         activeVideo?.id === video.id ? 'bg-gray-100 border-l-4 border-l-black' : ''
                       }`}
                     >
@@ -314,25 +466,78 @@ export default function CourseDetailPage() {
                   </div>
                   <div className="max-h-64 overflow-y-auto custom-scrollbar">
                     {course.materials.map((material) => (
-                      <a
+                      <div
                         key={material.id}
-                        href={`http://localhost:5000/uploads/materials/${material.filename}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors last:border-b-0"
+                        className="border-b border-gray-100 last:border-b-0"
                       >
-                        <div className="shrink-0 w-8 h-8 bg-gray-100 rounded flex items-center justify-center text-sm text-gray-600">
-                          <FileText className="w-4 h-4" />
+                        <div
+                          onClick={() => handleMaterialClick(material)}
+                          className={`w-full text-left p-4 hover:bg-gray-50 transition-colors cursor-pointer ${
+                            activeMaterial?.id === material.id ? 'bg-gray-100 border-l-4 border-l-black' : ''
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center flex-1 min-w-0">
+                              <div className="shrink-0 w-8 h-8 bg-gray-100 rounded flex items-center justify-center text-sm text-gray-600">
+                                <FileText className="w-4 h-4" />
+                              </div>
+                              <div className="ml-3 flex-1 min-w-0">
+                                <h4 className="text-sm font-medium text-gray-900 truncate">
+                                  {material.title}
+                                </h4>
+                                <div className="flex items-center space-x-2 text-xs text-gray-500 mt-1">
+                                  <span>{material.status}</span>
+                                  <span>•</span>
+                                  <span>{material.fileType || 'Unknown'} • {(material.fileSize / 1024).toFixed(1)} KB</span>
+                                </div>
+                              </div>
+                            </div>
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                try {
+                                  const token = localStorage.getItem('token');
+                                  if (!token) {
+                                    console.error('No authentication token found');
+                                    return;
+                                  }
+
+                                  // Fetch the file as a blob with authentication
+                                  const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/material/${material.id}/download`, {
+                                    method: 'GET',
+                                    headers: {
+                                      'Authorization': `Bearer ${token}`
+                                    }
+                                  });
+
+                                  if (!response.ok) {
+                                    throw new Error(`Download failed: ${response.status}`);
+                                  }
+
+                                  // Create blob and download link
+                                  const blob = await response.blob();
+                                  const url = window.URL.createObjectURL(blob);
+                                  const link = document.createElement('a');
+                                  link.href = url;
+                                  link.download = material.title || 'download';
+                                  document.body.appendChild(link);
+                                  link.click();
+                                  document.body.removeChild(link);
+                                  window.URL.revokeObjectURL(url);
+                                } catch (error) {
+                                  console.error('Download error:', error);
+                                }
+                              }}
+                              className="text-blue-500 hover:text-blue-700 transition-colors p-1 rounded-full hover:bg-blue-100"
+                              title="Download material"
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                            </button>
+                          </div>
                         </div>
-                        <div className="ml-3 flex-1 min-w-0">
-                          <h4 className="text-sm font-medium text-gray-900 truncate">
-                            {material.title}
-                          </h4>
-                          <p className="text-xs text-gray-500">
-                            {material.fileType || 'Unknown'} • {(material.fileSize / 1024).toFixed(1)} KB
-                          </p>
-                        </div>
-                      </a>
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -345,7 +550,7 @@ export default function CourseDetailPage() {
                     <h3 className="text-xl font-semibold text-gray-900">Course Quiz</h3>
                     <button
                       onClick={() => setShowQuiz(true)}
-                      className="px-4 py-2 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors flex items-center space-x-1 shadow-md"
+                      className="px-4 py-2 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors flex items-center space-x-1 shadow-md hover:shadow-lg hover:cursor-pointer"
                     >
                       <HelpCircle className="w-4 h-4" />
                       <span>Take Quiz</span>

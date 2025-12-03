@@ -71,6 +71,9 @@ export const adminAPI = {
     api.patch(`/admin/users/${userId}/password`, { password }),
   deleteUser: (userId: string) => api.delete(`/admin/users/${userId}`),
   getAuditLogs: (params?: any) => api.get('/admin/audit-logs', { params }),
+  // New revenue report endpoint
+  getRevenueReport: () => api.get('/admin/reports/revenue'),
+  downloadRevenueReportPdf: () => api.get('/admin/reports/revenue/download-pdf', { responseType: 'blob' }),
 };
 
 export const instructorAPI = {
@@ -104,6 +107,12 @@ export const instructorAPI = {
     api.delete(`/instructor/courses/${courseId}/materials/${materialId}`),
   updateVideoSummary: (courseId: string, videoId: string, summary: string) =>
     api.put(`/instructor/courses/${courseId}/videos/${videoId}/summary`, { summary }),
+  updateMaterialSummary: (courseId: string, materialId: string, summary: string) =>
+    api.put(`/instructor/courses/${courseId}/materials/${materialId}/summary`, { summary }),
+  getMaterialSummary: (materialId: string) =>
+    api.get(`/material/${materialId}/summary`),
+  getMaterialDownload: (materialId: string) =>
+    api.get(`/material/${materialId}/download`),
   deleteCourse: (courseId: string) =>
     api.delete(`/instructor/courses/${courseId}`),
   // MCQ functions
@@ -124,6 +133,8 @@ export const studentAPI = {
     api.get(`/student/courses/${courseId}`),
   getDashboardStats: () => api.get('/student/dashboard-stats'),
   getRecommendations: () => api.get('/student/recommendations'),
+  // Payment functions
+  getPaymentHistory: () => api.get('/student/payments'),
   // MCQ functions
   getMcqs: (courseId: string) =>
     api.get(`/student/courses/${courseId}/mcqs`),
@@ -145,6 +156,21 @@ export const chatAPI = {
   getMessages: (courseId: string) => api.get(`/chat/courses/${courseId}/messages`),
   sendMessage: (courseId: string, message: string) =>
     api.post(`/chat/courses/${courseId}/messages`, { message }),
+};
+
+export const chatbotAPI = {
+  getMessages: () => api.get('/chatbot/messages'),
+  sendMessage: (message: string) =>
+    api.post('/chatbot/messages', { message }),
+};
+
+export const paymentAPI = {
+  createCheckoutSession: (courseId: string) =>
+    api.post('/payment/create-checkout-session', { courseId }),
+  getReceiptUrl: (sessionId: string) =>
+    api.get<{ receiptUrl: string }>(`/payment/receipt/${sessionId}`),
+  downloadReceipt: (sessionId: string) =>
+    api.get(`/payment/download-receipt/${sessionId}`, { responseType: 'blob' }),
 };
 
 export default api;

@@ -34,6 +34,7 @@ export default function UserManagement() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [userToDelete, setUserToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [loadingUsers, setLoadingUsers] = useState<Set<string>>(new Set());
   const { showSuccess, showError } = useToast();
 
   useEffect(() => {
@@ -83,14 +84,29 @@ export default function UserManagement() {
     setShowDeleteConfirm(true);
   };
 
+  const handleDeleteClick = (userId: string, userName: string) => {
+    setLoadingUsers(prev => new Set(prev).add(userId));
+    deleteUser(userId, userName);
+  };
+
   const confirmDeleteUser = async () => {
     if (!userToDelete) return;
 
     try {
       await adminAPI.deleteUser(userToDelete.id);
+      setLoadingUsers(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(userToDelete.id);
+        return newSet;
+      });
       fetchUsers();
       showSuccess(`User "${userToDelete.name}" deleted successfully!`);
     } catch (error: any) {
+      setLoadingUsers(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(userToDelete.id);
+        return newSet;
+      });
       showError(error.response?.data?.error || 'Failed to delete user');
     } finally {
       setShowDeleteConfirm(false);
@@ -334,11 +350,16 @@ export default function UserManagement() {
                               {user.isActive ? 'Deactivate' : 'Activate'}
                             </button>
                             <button
-                              onClick={() => deleteUser(user.id, user.name)}
-                              className="px-3 py-1 rounded-lg text-xs font-medium transition-colors flex items-center bg-red-50 text-red-600 hover:bg-red-100"
+                              onClick={() => handleDeleteClick(user.id, user.name)}
+                              disabled={loadingUsers.has(user.id)}
+                              className="px-3 py-1 rounded-lg text-xs font-medium transition-colors flex items-center bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              <Trash2 className="w-4 h-4 mr-1" />
-                              Delete
+                              {loadingUsers.has(user.id) ? (
+                                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-4 h-4 mr-1" />
+                              )}
+                              {loadingUsers.has(user.id) ? 'Deleting...' : 'Delete'}
                             </button>
                           </>
                         )}

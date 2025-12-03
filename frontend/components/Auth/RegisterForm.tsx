@@ -139,7 +139,7 @@ export default function RegisterForm() {
             </FieldGroup>
 
             <div>
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button type="submit" className="w-full hover:cursor-pointer" disabled={loading}>
                 {loading ? 'Creating account...' : 'Create account'}
               </Button>
             </div>

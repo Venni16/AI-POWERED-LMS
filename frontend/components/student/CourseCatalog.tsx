@@ -6,6 +6,8 @@ import { Course } from '../../types';
 import { Search, Filter, Users, DollarSign, BookOpen, Loader2, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useToast } from '../../lib/useToast';
+import CheckoutButton from './CheckoutButton';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 export default function CourseCatalog() {
   const [courses, setCourses] = useState<Course[]>([]);
@@ -17,12 +19,34 @@ export default function CourseCatalog() {
   const [recommendedCourses, setRecommendedCourses] = useState<Course[]>([]);
   const [loadingRecommendations, setLoadingRecommendations] = useState(true);
   const { showSuccess, showError } = useToast();
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   useEffect(() => {
     fetchCourses();
     fetchEnrolledCourses();
     fetchRecommendations();
+    checkPaymentStatus();
   }, []);
+
+  const checkPaymentStatus = () => {
+    const paymentStatus = searchParams.get('payment');
+    const sessionId = searchParams.get('session_id');
+
+    if (paymentStatus === 'success') {
+      showSuccess('Payment successful! You are now enrolled in the course.');
+    } else if (paymentStatus === 'cancelled') {
+      showError('Payment cancelled. You have not been enrolled.');
+    }
+
+    // Clean up URL parameters
+    if (paymentStatus || sessionId) {
+      const newParams = new URLSearchParams(searchParams.toString());
+      newParams.delete('payment');
+      newParams.delete('session_id');
+      router.replace(`/student?tab=catalog`, { scroll: false });
+    }
+  };
 
   const fetchCourses = async () => {
     try {
@@ -57,7 +81,7 @@ export default function CourseCatalog() {
     }
   };
 
-  const handleEnroll = async (courseId: string) => {
+  const handleEnrollFreeCourse = async (courseId: string) => {
     setIsEnrolling(courseId);
     try {
       await studentAPI.enrollCourse(courseId);
@@ -89,6 +113,47 @@ export default function CourseCatalog() {
     );
   }
 
+  const renderEnrollButton = (course: Course) => {
+    const isEnrolled = enrolledCourses.includes(course.id);
+    const enrolling = isEnrolling === course.id;
+
+    if (isEnrolled) {
+      return (
+        <button
+          disabled
+          className="w-full py-2.5 px-4 rounded-lg text-sm font-medium transition-colors shadow-md flex items-center justify-center space-x-2 bg-gray-300 text-gray-600 cursor-not-allowed"
+        >
+          Already Enrolled
+        </button>
+      );
+    }
+
+    if (course.price > 0) {
+      return <CheckoutButton courseId={course.id} price={course.price} isEnrolled={isEnrolled} />;
+    }
+
+    return (
+      <button
+        onClick={() => handleEnrollFreeCourse(course.id)}
+        disabled={enrolling}
+        className={`w-full py-2.5 px-4 rounded-lg text-sm font-medium transition-colors shadow-md flex items-center hover:cursor-pointer justify-center space-x-2 ${
+          enrolling
+            ? 'bg-gray-400 text-white cursor-not-allowed'
+            : 'bg-blue-500 text-white hover:bg-blue-800'
+        }`}
+      >
+        {enrolling ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span>Enrolling...</span>
+          </>
+        ) : (
+          'Enroll Now (Free)'
+        )}
+      </button>
+    );
+  };
+
   return (
     <div className="space-y-8">
       {/* AI Recommendations Section */}
@@ -106,7 +171,6 @@ export default function CourseCatalog() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {recommendedCourses.slice(0, 3).map((course) => {
                 const isEnrolled = enrolledCourses.includes(course.id);
-                const enrolling = isEnrolling === course.id;
 
                 return (
                   <motion.div
@@ -149,26 +213,7 @@ export default function CourseCatalog() {
                         </span>
                       </div>
 
-                      <button
-                        onClick={() => handleEnroll(course.id)}
-                        disabled={isEnrolled || enrolling}
-                        className={`w-full py-2 px-3 rounded-lg text-xs font-medium transition-colors shadow-sm flex items-center justify-center space-x-1 ${
-                          isEnrolled
-                            ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
-                            : 'bg-blue-500 text-white hover:bg-blue-700'
-                        }`}
-                      >
-                        {enrolling ? (
-                          <>
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                            <span>Enrolling...</span>
-                          </>
-                        ) : isEnrolled ? (
-                          'Enrolled'
-                        ) : (
-                          'Enroll Now'
-                        )}
-                      </button>
+                      {renderEnrollButton(course)}
                     </div>
                   </motion.div>
                 );
@@ -219,7 +264,6 @@ export default function CourseCatalog() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {filteredCourses.map((course) => {
               const isEnrolled = enrolledCourses.includes(course.id);
-              const enrolling = isEnrolling === course.id;
 
               return (
                 <motion.div
@@ -294,26 +338,7 @@ export default function CourseCatalog() {
                       <span className="font-medium text-gray-700">{course.instructor.name}</span>
                     </div>
 
-                    <button
-                      onClick={() => handleEnroll(course.id)}
-                      disabled={isEnrolled || enrolling}
-                      className={`w-full py-2.5 px-4 rounded-lg text-sm font-medium transition-colors shadow-md flex items-center justify-center space-x-2 ${
-                        isEnrolled
-                          ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
-                          : 'bg-blue-500 text-white hover:bg-blue-800'
-                      }`}
-                    >
-                      {enrolling ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>Enrolling...</span>
-                        </>
-                      ) : isEnrolled ? (
-                        'Already Enrolled'
-                      ) : (
-                        'Enroll Now'
-                      )}
-                    </button>
+                    {renderEnrollButton(course)}
                   </div>
                 </motion.div>
               );

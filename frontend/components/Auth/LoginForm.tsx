@@ -97,7 +97,7 @@ export default function LoginForm() {
             </FieldGroup>
 
             <div className="space-y-3">
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button type="submit" className="w-full hover:cursor-pointer" disabled={loading}>
                 {loading ? 'Signing in...' : 'Sign in'}
               </Button>
               <GoogleLoginButton />

@@ -289,14 +289,14 @@ export default function CourseManager() {
             <div className="flex space-x-3 pt-4">
               <button
                 type="submit"
-                className="bg-black text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors shadow-md"
+                className="bg-black text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors shadow-md hover:cursor-pointer"
               >
                 Create Course
               </button>
               <button
                 type="button"
                 onClick={() => setShowCreateForm(false)}
-                className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors"
+                className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors hover:cursor-pointer"
               >
                 Cancel
               </button>
@@ -311,7 +311,7 @@ export default function CourseManager() {
           <h3 className="text-xl font-semibold text-gray-900">My Courses ({courses.length})</h3>
           <button
             onClick={() => setShowCreateForm(true)}
-            className="bg-black text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors shadow-md shrink-0"
+            className="bg-black text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors shadow-md shrink-0 hover:cursor-pointer"
           >
             + Create New Course
           </button>
@@ -383,14 +383,14 @@ export default function CourseManager() {
               <div className="flex flex-col space-y-3 pt-2">
                 <button
                   onClick={() => router.push(`/instructor/courses/${course.id}`)}
-                  className="w-full bg-black text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors shadow-md"
+                  className="w-full bg-black text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors shadow-md hover:cursor-pointer"
                 >
                   Manage Content
                 </button>
                 <div className="flex space-x-3">
                   <button
                     onClick={() => toggleCoursePublish(course.id, course.isPublished)}
-                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium hover:cursor-pointer transition-colors ${
                       course.isPublished
                         ? 'bg-gray-100 text-gray-800 hover:bg-gray-200'
                         : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
@@ -400,7 +400,7 @@ export default function CourseManager() {
                   </button>
                   <button
                     onClick={() => handleDeleteCourse(course.id)}
-                    className="flex-1 bg-red-50 text-red-600 px-3 py-2 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors flex items-center justify-center"
+                    className="flex-1 bg-red-50 text-red-600 px-3 py-2 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors flex items-center justify-center hover:cursor-pointer"
                   >
                     <Trash2 className="w-4 h-4 mr-1" />
                     Delete

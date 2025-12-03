@@ -46,7 +46,7 @@ const SidebarLayout: React.FC<SidebarLayoutProps> = ({ title, description, navIt
               setIsSidebarOpen(false);
             }}
             className={cn(
-              'w-full flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+              'w-full flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer',
               activeTab === item.id
                 ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-md'
                 : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
@@ -69,7 +69,7 @@ const SidebarLayout: React.FC<SidebarLayoutProps> = ({ title, description, navIt
         </Link>
         <button
           onClick={logout}
-          className="w-full flex items-center p-2 rounded-lg text-sm font-medium text-red-500 hover:bg-red-50 transition-colors"
+          className="w-full flex items-center p-2 rounded-lg text-sm font-medium text-red-500 hover:bg-red-50 transition-colors hover:cursor-pointer"
         >
           <LogOut className="w-5 h-5 mr-3" />
           <span>Logout</span>

@@ -25,8 +25,13 @@ export default function InstructorCourseDetailPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [editingSummary, setEditingSummary] = useState<string | null>(null);
   const [summaryText, setSummaryText] = useState<string>('');
+  const [activeMaterial, setActiveMaterial] = useState<any | null>(null);
+  const [materialSummary, setMaterialSummary] = useState<string>('');
+  const [editingMaterialSummary, setEditingMaterialSummary] = useState<string | null>(null);
+  const [materialSummaryText, setMaterialSummaryText] = useState<string>('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteItem, setDeleteItem] = useState<{ type: 'video' | 'material'; id: string; name: string } | null>(null);
+  const [loadingItems, setLoadingItems] = useState<Set<string>>(new Set());
   const { showSuccess, showError } = useToast();
 
   useEffect(() => {
@@ -105,6 +110,59 @@ export default function InstructorCourseDetailPage() {
     setSummaryText('');
   };
 
+  const handleMaterialClick = async (material: any) => {
+    try {
+      const response = await instructorAPI.getMaterialSummary(material.id);
+      if (response.data.success) {
+        setActiveMaterial(response.data.material);
+        setMaterialSummary(response.data.material.edited_summary || response.data.material.summary || 'No summary available.');
+      } else {
+        setActiveMaterial(material);
+        setMaterialSummary('Failed to load summary.');
+      }
+    } catch (error) {
+      console.error('Failed to fetch material summary:', error);
+      setActiveMaterial(material);
+      setMaterialSummary('Failed to load summary.');
+    }
+  };
+
+  const handleEditMaterialSummary = (materialId: string) => {
+    const material = activeMaterial || course?.materials?.find(m => m.id === materialId);
+    if (material) {
+      setEditingMaterialSummary(materialId);
+      setMaterialSummaryText(material.edited_summary || material.editedSummary || material.summary || '');
+    }
+  };
+
+  const handleSaveMaterialSummary = async (materialId: string) => {
+    try {
+      await instructorAPI.updateMaterialSummary(courseId as string, materialId, materialSummaryText);
+      // Refresh course details to get updated summary
+      await fetchCourseDetails();
+      // Update the active material summary display
+      setMaterialSummary(materialSummaryText);
+      // Update activeMaterial with the new edited summary
+      if (activeMaterial) {
+        setActiveMaterial({
+          ...activeMaterial,
+          edited_summary: materialSummaryText
+        });
+      }
+      setEditingMaterialSummary(null);
+      setMaterialSummaryText('');
+      showSuccess('Material summary updated successfully!');
+    } catch (error) {
+      console.error('Failed to save material summary:', error);
+      showError('Failed to save material summary.');
+    }
+  };
+
+  const handleCancelMaterialEdit = () => {
+    setEditingMaterialSummary(null);
+    setMaterialSummaryText('');
+  };
+
   const handleDeleteVideo = (videoId: string, videoTitle: string) => {
     setDeleteItem({ type: 'video', id: videoId, name: videoTitle });
     setShowDeleteConfirm(true);
@@ -113,6 +171,15 @@ export default function InstructorCourseDetailPage() {
   const handleDeleteMaterial = (materialId: string, materialTitle: string) => {
     setDeleteItem({ type: 'material', id: materialId, name: materialTitle });
     setShowDeleteConfirm(true);
+  };
+
+  const handleDeleteClick = (type: 'video' | 'material', id: string, name: string) => {
+    setLoadingItems(prev => new Set(prev).add(id));
+    if (type === 'video') {
+      handleDeleteVideo(id, name);
+    } else {
+      handleDeleteMaterial(id, name);
+    }
   };
 
   const confirmDelete = async () => {
@@ -137,6 +204,11 @@ export default function InstructorCourseDetailPage() {
       console.error(`Failed to delete ${deleteItem.type}:`, error);
       showError(error.response?.data?.error || `Failed to delete ${deleteItem.type}`);
     } finally {
+      setLoadingItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(deleteItem.id);
+        return newSet;
+      });
       setShowDeleteConfirm(false);
       setDeleteItem(null);
     }
@@ -288,7 +360,7 @@ export default function InstructorCourseDetailPage() {
           </AnimatePresence>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 px-4 sm:px-0">
-            {/* Main Content (Video Player & Summary) */}
+            {/* Main Content (Video Player, Material Summary & Summary) */}
             <div className="lg:col-span-2 space-y-6">
               {/* Video Player */}
               <div className="bg-white rounded-xl shadow-lg border border-gray-200">
@@ -337,11 +409,68 @@ export default function InstructorCourseDetailPage() {
                 </div>
               </div>
 
+              {/* Material Summary Section */}
+              {activeMaterial && activeMaterial.status === 'completed' && (
+                <div className="bg-white rounded-xl shadow-lg border border-gray-200">
+                  <div className="p-4 border-b border-gray-200">
+                    <h3 className="text-xl font-semibold text-gray-900">Material AI Summary</h3>
+                  </div>
+                  <div className="p-6">
+                    <h4 className="text-lg font-medium text-gray-800 mb-3">Summary</h4>
+                    {editingMaterialSummary === activeMaterial?.id ? (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="space-y-4"
+                      >
+                        <textarea
+                          value={materialSummaryText}
+                          onChange={(e) => setMaterialSummaryText(e.target.value)}
+                          className="w-full h-32 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+                          placeholder="Edit the AI summary..."
+                        />
+                        <div className="flex space-x-3">
+                          <button
+                            onClick={() => handleSaveMaterialSummary(activeMaterial.id)}
+                            className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors text-sm font-medium shadow-md"
+                          >
+                            Save Changes
+                          </button>
+                          <button
+                            onClick={handleCancelMaterialEdit}
+                            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm font-medium"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </motion.div>
+                    ) : (
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <p className="text-gray-800 leading-relaxed whitespace-pre-wrap flex-1">
+                            {materialSummary || 'No summary available.'}
+                          </p>
+                          <button
+                            onClick={() => handleEditMaterialSummary(activeMaterial?.id)}
+                            className="ml-2 text-black hover:text-gray-700 transition-colors p-1 rounded-full hover:bg-gray-100"
+                            title="Edit summary"
+                          >
+                            <Edit className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* AI Summary Section */}
               {activeVideo && activeVideo.status === 'completed' && (
                 <div className="bg-white rounded-xl shadow-lg border border-gray-200">
                   <div className="p-4 border-b border-gray-200">
-                    <h3 className="text-xl font-semibold text-gray-900">AI Summary & Transcript</h3>
+                    <h3 className="text-xl font-semibold text-gray-900">Video AI Summary & Transcript</h3>
                   </div>
                   <div className="p-6">
                     <h4 className="text-lg font-medium text-gray-800 mb-3">Summary</h4>
@@ -436,7 +565,10 @@ export default function InstructorCourseDetailPage() {
                 </div>
                 <div className="max-h-96 overflow-y-auto custom-scrollbar">
                   {course.videos?.map((video, index) => (
-                    <div key={video.id} className="border-b border-gray-100 last:border-b-0">
+                    <div
+                      key={video.id}
+                      className="border-b border-gray-100 last:border-b-0"
+                    >
                       <div
                         onClick={() => {
                           setActiveVideo(video);
@@ -459,12 +591,17 @@ export default function InstructorCourseDetailPage() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleDeleteVideo(video.id, video.title);
+                                  handleDeleteClick('video', video.id, video.title);
                                 }}
-                                className="ml-2 text-red-500 hover:text-red-700 transition-colors p-1 rounded-full hover:bg-red-100"
+                                disabled={loadingItems.has(video.id)}
+                                className="ml-2 text-red-500 hover:text-red-700 transition-colors p-1 rounded-full hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
                                 title="Delete video"
                               >
-                                <Trash2 className="w-4 h-4" />
+                                {loadingItems.has(video.id) ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="w-4 h-4" />
+                                )}
                               </button>
                             </div>
                             <div className="flex items-center space-x-2 text-xs text-gray-500 mt-1">
@@ -496,33 +633,93 @@ export default function InstructorCourseDetailPage() {
                     {course.materials.map((material) => (
                       <div
                         key={material.id}
-                        className="flex items-center p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors last:border-b-0"
+                        className="border-b border-gray-100 last:border-b-0"
                       >
-                        <a
-                          href={`http://localhost:5000/uploads/materials/${material.filename}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center flex-1 min-w-0"
+                        <div
+                          onClick={() => handleMaterialClick(material)}
+                          className={`w-full text-left p-4 hover:bg-gray-50 transition-colors cursor-pointer ${
+                            activeMaterial?.id === material.id ? 'bg-gray-100 border-l-4 border-l-black' : ''
+                          }`}
                         >
-                          <div className="shrink-0 w-8 h-8 bg-gray-100 rounded flex items-center justify-center text-sm text-gray-600">
-                            <FileText className="w-4 h-4" />
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center flex-1 min-w-0">
+                              <div className="shrink-0 w-8 h-8 bg-gray-100 rounded flex items-center justify-center text-sm text-gray-600">
+                                <FileText className="w-4 h-4" />
+                              </div>
+                              <div className="ml-3 flex-1 min-w-0">
+                                <h4 className="text-sm font-medium text-gray-900 truncate">
+                                  {material.title}
+                                </h4>
+                                <div className="flex items-center space-x-2 text-xs text-gray-500 mt-1">
+                                  <span>{material.status}</span>
+                                  <span>•</span>
+                                  <span>{material.fileType || 'Unknown'} • {(material.fileSize / 1024).toFixed(1)} KB</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    const token = localStorage.getItem('token');
+                                    if (!token) {
+                                      showError('Authentication required');
+                                      return;
+                                    }
+
+                                    // Fetch the file as a blob with authentication
+                                    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/material/${material.id}/download`, {
+                                      method: 'GET',
+                                      headers: {
+                                        'Authorization': `Bearer ${token}`
+                                      }
+                                    });
+
+                                    if (!response.ok) {
+                                      throw new Error(`Download failed: ${response.status}`);
+                                    }
+
+                                    // Create blob and download link
+                                    const blob = await response.blob();
+                                    const url = window.URL.createObjectURL(blob);
+                                    const link = document.createElement('a');
+                                    link.href = url;
+                                    link.download = material.title || 'download';
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    document.body.removeChild(link);
+                                    window.URL.revokeObjectURL(url);
+                                  } catch (error) {
+                                    console.error('Download error:', error);
+                                    showError('Failed to download material');
+                                  }
+                                }}
+                                className="text-blue-500 hover:text-blue-700 transition-colors p-1 rounded-full hover:bg-blue-100"
+                                title="Download material"
+                              >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteClick('material', material.id, material.title);
+                                }}
+                                disabled={loadingItems.has(material.id)}
+                                className="text-red-500 hover:text-red-700 transition-colors p-1 rounded-full hover:bg-red-100 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Delete material"
+                              >
+                                {loadingItems.has(material.id) ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="w-4 h-4" />
+                                )}
+                              </button>
+                            </div>
                           </div>
-                          <div className="ml-3 flex-1 min-w-0">
-                            <h4 className="text-sm font-medium text-gray-900 truncate">
-                              {material.title}
-                            </h4>
-                            <p className="text-xs text-gray-500">
-                              {material.fileType || 'Unknown'} • {(material.fileSize / 1024).toFixed(1)} KB
-                            </p>
-                          </div>
-                        </a>
-                        <button
-                          onClick={() => handleDeleteMaterial(material.id, material.title)}
-                          className="ml-2 text-red-500 hover:text-red-700 transition-colors p-1 rounded-full hover:bg-red-100 shrink-0"
-                          title="Delete material"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        </div>
                       </div>
                     ))}
                   </div>

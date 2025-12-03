@@ -5,11 +5,12 @@ import SidebarLayout from '../../../components/common/SidebarLayout';
 import UserManagement from '../../../components/Admin/UserManagement';
 import AuditLogs from '../../../components/Admin/AuditLogs';
 import PasswordChanger from '../../../components/Admin/PasswordChanger';
+import RevenueReport from '../../../components/Admin/RevenueReport'; // Import new component
 import { useState, useEffect } from 'react';
 import { adminAPI } from '../../../lib/api';
 import { motion } from 'framer-motion';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend } from 'recharts';
-import { Users, BookOpen, UserCheck, FileText, LayoutDashboard, Key } from 'lucide-react';
+import { Users, BookOpen, UserCheck, FileText, LayoutDashboard, Key, DollarSign } from 'lucide-react'; // Import DollarSign icon
 
 // Define a consistent color palette for charts
 const CHART_COLORS = ['#0000FF', '#00FF00', '#FF0000'];
@@ -158,6 +159,7 @@ export default function AdminDashboard() {
 
   const adminNavItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, component: <DashboardContent stats={stats} loading={loading} chartData={chartData} /> },
+    { id: 'reports', label: 'Revenue Reports', icon: DollarSign, component: <RevenueReport /> }, // New Reports Tab
     { id: 'users', label: 'User Management', icon: Users, component: <UserManagement /> },
     { id: 'passwords', label: 'Change Passwords', icon: Key, component: <PasswordChanger /> },
     { id: 'audit', label: 'Audit Logs', icon: FileText, component: <AuditLogs /> },

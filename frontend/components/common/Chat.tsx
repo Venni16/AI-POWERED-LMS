@@ -18,6 +18,7 @@ export default function Chat({ courseId, currentUser }: ChatProps) {
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showOlderMessages, setShowOlderMessages] = useState(false);
   const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -29,13 +30,18 @@ export default function Chat({ courseId, currentUser }: ChatProps) {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, showOlderMessages]);
 
   useEffect(() => {
     // Initialize socket connection
     const initSocket = () => {
       const socket = io(process.env.NEXT_PUBLIC_BACKEND_URL, {
-        transports: ['websocket', 'polling']
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        randomizationFactor: 0.5
       });
 
       socket.on('connect', () => {
@@ -107,6 +113,9 @@ export default function Chat({ courseId, currentUser }: ChatProps) {
     }
   };
 
+  const todayMessages = messages.filter(msg => isToday(new Date(msg.created_at)));
+  const olderMessages = messages.filter(msg => !isToday(new Date(msg.created_at)));
+
   if (isLoading) {
     return (
       <div className="bg-white rounded-xl shadow-lg p-6 flex items-center justify-center h-96">
@@ -129,6 +138,19 @@ export default function Chat({ courseId, currentUser }: ChatProps) {
         </div>
       </div>
 
+      {/* Toggle older messages if any */}
+      {olderMessages.length > 0 && (
+        <div className="p-1 border-b border-gray-200 text-center">
+          <button
+            onClick={() => setShowOlderMessages(!showOlderMessages)}
+            className="text-sm   text-blue-600 hover:text-blue-800 focus:outline-none hover:cursor-pointer"
+            aria-expanded={showOlderMessages}
+          >
+            {showOlderMessages ? "Hide old Messages" : "Show old Messages"}
+          </button>
+        </div>
+      )}
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
         {messages.length === 0 ? (
@@ -137,30 +159,56 @@ export default function Chat({ courseId, currentUser }: ChatProps) {
             No messages yet. Start the conversation!
           </div>
         ) : (
-          messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.sender.id === currentUser.id ? 'justify-end' : 'justify-start'}`}
-            >
+          <>
+            {todayMessages.map((message) => (
               <div
-                className={`max-w-xs lg:max-w-md px-4 py-2 rounded-xl shadow-md ${
-                  message.sender.id === currentUser.id
-                    ? 'bg-black text-white rounded-br-none'
-                    : 'bg-gray-100 text-gray-900 rounded-tl-none'
-                }`}
+                key={message.id}
+                className={`flex ${message.sender.id === currentUser.id ? 'justify-end' : 'justify-start'}`}
               >
-                <div className="flex items-center space-x-2 mb-1">
-                  <span className={`text-xs font-semibold ${message.sender.id === currentUser.id ? 'text-gray-300' : 'text-black'}`}>
-                    {message.sender.id === currentUser.id ? 'You' : message.sender.name}
-                  </span>
-                  <span className={`text-xs ${message.sender.id === currentUser.id ? 'text-gray-400' : 'text-gray-500'}`}>
-                    {formatTimestamp(message.created_at)}
-                  </span>
+                <div
+                  className={`max-w-xs lg:max-w-md px-4 py-2 rounded-xl shadow-md ${
+                    message.sender.id === currentUser.id
+                      ? 'bg-black text-white rounded-br-none'
+                      : 'bg-gray-100 text-gray-900 rounded-tl-none'
+                  }`}
+                >
+                  <div className="flex items-center space-x-2 mb-1">
+                    <span className={`text-xs font-semibold ${message.sender.id === currentUser.id ? 'text-gray-300' : 'text-black'}`}>
+                      {message.sender.id === currentUser.id ? 'You' : message.sender.name}
+                    </span>
+                    <span className={`text-xs ${message.sender.id === currentUser.id ? 'text-gray-400' : 'text-gray-500'}`}>
+                      {formatTimestamp(message.created_at)}
+                    </span>
+                  </div>
+                  <p className="text-sm leading-relaxed">{message.message}</p>
                 </div>
-                <p className="text-sm leading-relaxed">{message.message}</p>
               </div>
-            </div>
-          ))
+            ))}
+            {showOlderMessages && olderMessages.map((message) => (
+              <div
+                key={message.id}
+                className={`flex ${message.sender.id === currentUser.id ? 'justify-end' : 'justify-start'}`}
+              >
+                <div
+                  className={`max-w-xs lg:max-w-md px-4 py-2 rounded-xl shadow-md ${
+                    message.sender.id === currentUser.id
+                      ? 'bg-black text-white rounded-br-none'
+                      : 'bg-gray-100 text-gray-900 rounded-tl-none'
+                  }`}
+                >
+                  <div className="flex items-center space-x-2 mb-1">
+                    <span className={`text-xs font-semibold ${message.sender.id === currentUser.id ? 'text-gray-300' : 'text-black'}`}>
+                      {message.sender.id === currentUser.id ? 'You' : message.sender.name}
+                    </span>
+                    <span className={`text-xs ${message.sender.id === currentUser.id ? 'text-gray-400' : 'text-gray-500'}`}>
+                      {formatTimestamp(message.created_at)}
+                    </span>
+                  </div>
+                  <p className="text-sm leading-relaxed">{message.message}</p>
+                </div>
+              </div>
+            ))}
+          </>
         )}
         <div ref={messagesEndRef} />
       </div>
@@ -169,13 +217,13 @@ export default function Chat({ courseId, currentUser }: ChatProps) {
       <div className="p-4 border-t border-gray-200">
         {/* Emoji Picker */}
         {showEmojiPicker && (
-          <div className="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+          <div className="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200 ">
             <div className="grid grid-cols-10 gap-2">
               {emojis.map((emoji, index) => (
                 <button
                   key={index}
                   onClick={() => addEmoji(emoji)}
-                  className="text-2xl hover:bg-gray-200 rounded p-1 transition-colors"
+                  className="text-2xl hover:bg-gray-200 rounded p-1 transition-colors "
                   type="button"
                 >
                   {emoji}
@@ -198,14 +246,14 @@ export default function Chat({ courseId, currentUser }: ChatProps) {
           <button
             type="button"
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            className="shrink-0 w-12 h-12 bg-gray-200 text-gray-700 rounded-lg flex items-center justify-center hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 transition-colors"
+            className="shrink-0 w-12 h-12 bg-gray-200 text-gray-700 rounded-lg flex items-center justify-center hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 transition-colors hover:cursor-pointer"
           >
             <Smile className="w-5 h-5" />
           </button>
           <button
             type="submit"
             disabled={!newMessage.trim() || !isConnected}
-            className="shrink-0 w-12 h-12 bg-black text-white rounded-lg flex items-center justify-center hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+            className="shrink-0 w-12 h-12 bg-black text-white rounded-lg flex items-center justify-center hover:cursor-pointer hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
           >
             <Send className="w-5 h-5" />
           </button>

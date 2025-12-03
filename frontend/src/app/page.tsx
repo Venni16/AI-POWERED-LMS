@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { ParticleTextEffect } from '../../components/Ui/particle-text-effect';
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BookOpen, Brain, Users, Shield, TrendingUp, Video, Sparkles, ArrowRight, Play, Star, Heart } from "lucide-react";
+import { BookOpen,Bot, Brain, Users, Shield, TrendingUp, Video, Sparkles, ArrowRight, Play, Star, Heart } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function Home() {
@@ -89,7 +89,7 @@ export default function Home() {
               </motion.div>
               
               <ParticleTextEffect
-                words={["Vortex","AI-POWERED-LMS","With","Video Summarization","Course Recommendations","Real-Time Chat"]}
+                words={["Vortex","AI-POWERED-LMS","With","Chatbot","Video Summarization","Material Summarization","Course Recommendation","Real-Time Chat"]}
                 className="mx-auto mb-4 md:mb-6"
               />
               
@@ -100,7 +100,7 @@ export default function Home() {
                 className="text-base md:text-xl text-gray-700 max-w-4xl mx-auto leading-relaxed font-light"
               >
                 <span className="font-light text-gray-900">
-                Experience the future of education with{" "} AI-driven video summarization, personalized course recommendations, and intelligent learning analytics.
+                Experience the future of education with{" "} AI-driven Chatbot, video & Material summarization, personalized course recommendations, and intelligent learning analytics.
                 </span>
               </motion.p>
             </div>
@@ -192,8 +192,13 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
             {[
               { 
+                icon: Bot, 
+                title: "Chatbot Assistance", 
+                desc: "Get instant help and support from our AI-powered chatbot for any course-related queries"
+              },
+              { 
                 icon: Brain, 
-                title: "AI Video Summarization", 
+                title: "AI Video & Material Summarization", 
                 desc: "Automatically generate concise summaries and key points from course videos using advanced NLP"
               },
               { 
