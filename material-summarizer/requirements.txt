@@ -1,0 +1,13 @@
+fastapi==0.104.1
+uvicorn==0.24.0
+python-multipart==0.0.6
+aiofiles==23.2.1
+python-dotenv==1.0.0
+transformers==4.35.2
+torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
+accelerate==0.24.1
+sentence-transformers==2.2.2
+numpy==1.24.3
+pypdf2==3.0.1
+textract==1.6.5
+python-magic==0.4.27

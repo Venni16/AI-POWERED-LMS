@@ -22,8 +22,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Get URLs from environment
-FRONTEND_URL = os.getenv('FRONTEND_URL')
-BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost:5000')
+FRONTEND_URL = os.getenv('http://localhost:3000')
+BACKEND_URL = os.getenv('http://localhost:5000')
 
 # CORS middleware
 app.add_middleware(
@@ -198,7 +198,7 @@ if __name__ == "__main__":
         logger.error("CRITICAL: AI dependencies not loaded. Video processing will not work!")
         logger.error("Please check that whisper-openai, transformers, and torch are installed.")
 
-    port = int(os.environ.get("PORT", 10000))
+    port = int(os.environ.get("PORT", 8000))
     uvicorn.run(
         "app:app",
         host="0.0.0.0",
