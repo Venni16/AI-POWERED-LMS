@@ -71,6 +71,9 @@ CREATE TABLE IF NOT EXISTS videos (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Add updated_at column to existing videos table if it doesn't exist
+ALTER TABLE videos ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+
 -- Create indexes for videos
 CREATE INDEX IF NOT EXISTS idx_videos_course_id ON videos(course_id);
 CREATE INDEX IF NOT EXISTS idx_videos_status ON videos(status);

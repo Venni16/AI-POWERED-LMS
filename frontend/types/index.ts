@@ -66,6 +66,13 @@ export interface Material {
   fileType: string;
   course: string;
   uploadDate: string;
+  // Add AI processing fields
+  status: 'uploaded' | 'processing' | 'completed' | 'error';
+  transcript?: string;
+  summary?: string;
+  editedSummary?: string;
+  processingTime?: number;
+  storagePath?: string;
 }
 
 export interface Enrollment {
