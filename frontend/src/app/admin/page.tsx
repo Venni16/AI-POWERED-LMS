@@ -42,77 +42,95 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, loading, 
   </motion.div>
 );
 
-const DashboardContent = ({ stats, loading, chartData }: { stats: any, loading: boolean, chartData: any }) => (
-  <motion.div
-    className="space-y-8"
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.5 }}
-  >
-    {/* Stats Grid */}
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      <StatCard title="Total Users" value={stats.totalUsers} icon={Users} loading={loading} delay={0.1} />
-      <StatCard title="Courses" value={stats.totalCourses} icon={BookOpen} loading={loading} delay={0.2} />
-      <StatCard title="Instructors" value={stats.totalInstructors} icon={UserCheck} loading={loading} delay={0.3} />
-      <StatCard title="Audit Logs" value="View Details" icon={FileText} loading={loading} delay={0.4} />
-    </div>
+const DashboardContent = ({ stats, loading, chartData }: { stats: any, loading: boolean, chartData: any }) => {
+  
+  // Sort and limit enrollments for cleaner vertical bar chart visualization
+  const sortedEnrollments = [...chartData.courseEnrollments]
+    .sort((a, b) => b.enrollments - a.enrollments)
+    .slice(0, 5);
 
-    {/* Charts Section */}
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* User Trends Chart */}
+  return (
+    <motion.div
+      className="space-y-8"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatCard title="Total Users" value={stats.totalUsers} icon={Users} loading={loading} delay={0.1} />
+        <StatCard title="Courses" value={stats.totalCourses} icon={BookOpen} loading={loading} delay={0.2} />
+        <StatCard title="Instructors" value={stats.totalInstructors} icon={UserCheck} loading={loading} delay={0.3} />
+        <StatCard title="Audit Logs" value="View Details" icon={FileText} loading={loading} delay={0.4} />
+      </div>
+
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* User Trends Chart */}
+        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">User Registration Trends (Last 6 Months)</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={chartData.userTrends} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis dataKey="month" stroke="#374151" />
+              <YAxis stroke="#374151" />
+              <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }} />
+              <Line type="monotone" dataKey="users" stroke={'green'} strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Role Distribution Chart */}
+        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">User Role Distribution</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={chartData.roleDistribution}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                outerRadius={100}
+                fill="#8884d8"
+                dataKey="value"
+              >
+                {chartData.roleDistribution.map((entry: { name: string; value: number; color: string }, index: number) => (
+                  <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }} />
+              <Legend layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ paddingLeft: '20px' }} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Course Enrollments Chart (Improved Vertical Bar Chart) */}
       <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">User Registration Trends (Last 6 Months)</h3>
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={chartData.userTrends} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Top 5 Course Enrollments</h3>
+        <ResponsiveContainer width="100%" height={350}>
+          <BarChart data={sortedEnrollments} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-            <XAxis dataKey="month" stroke="#374151" />
-            <YAxis stroke="#374151" />
+            <XAxis 
+              dataKey="course" 
+              stroke="#374151" 
+              angle={-30} // Increased rotation for better fit
+              textAnchor="end" 
+              height={80} // Increased height to accommodate rotated labels
+              interval={0}
+              tick={{ fontSize: 12 }}
+              tickFormatter={(str) => str.length > 20 ? `${str.substring(0, 18)}...` : str} // Truncate if extremely long
+            />
+            <YAxis type="number" stroke="#374151" />
             <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }} />
-            <Line type="monotone" dataKey="users" stroke={'green'} strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-          </LineChart>
+            <Legend wrapperStyle={{ paddingTop: 10 }} />
+            <Bar dataKey="enrollments" fill={CHART_COLORS[0]} radius={[4, 4, 0, 0]} barSize={30} name="Enrollments" />
+          </BarChart>
         </ResponsiveContainer>
       </div>
-
-      {/* Role Distribution Chart */}
-      <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">User Role Distribution</h3>
-        <ResponsiveContainer width="100%" height={300}>
-          <PieChart>
-            <Pie
-              data={chartData.roleDistribution}
-              cx="50%"
-              cy="50%"
-              labelLine={false}
-              outerRadius={100}
-              fill="#8884d8"
-              dataKey="value"
-            >
-              {chartData.roleDistribution.map((entry: { name: string; value: number; color: string }, index: number) => (
-                <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-              ))}
-            </Pie>
-            <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }} />
-            <Legend layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ paddingLeft: '20px' }} />
-          </PieChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-
-    {/* Course Enrollments Chart (Improved Bar Chart) */}
-    <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Course Enrollments</h3>
-      <ResponsiveContainer width="100%" height={300}>
-        <BarChart data={chartData.courseEnrollments} layout="vertical" margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-          <XAxis type="number" stroke="#374151" />
-          <YAxis type="category" dataKey="course" stroke="#374151" width={100} />
-          <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }} />
-          <Bar dataKey="enrollments" fill={CHART_COLORS[0]} radius={[0, 4, 4, 0]} barSize={20} />
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  </motion.div>
-);
+    </motion.div>
+  );
+};
 
 
 export default function AdminDashboard() {
