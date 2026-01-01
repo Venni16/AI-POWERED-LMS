@@ -32,7 +32,7 @@ An advanced, AI-driven Learning Management System that revolutionizes online edu
 ## 🛠️ Tech Stack
 
 ### Frontend
-- **Framework**: Next.js 14 with TypeScript
+- **Framework**: Next.js with TypeScript
 - **Styling**: Tailwind CSS
 - **UI Components**: Custom component library with Lucide React icons
 - **State Management**: React Context API
