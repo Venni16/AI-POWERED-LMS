@@ -37,6 +37,10 @@ const PORT = process.env.PORT || 5000;
 // Get URLs from environment
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 
+// 1. Stripe Webhook needs raw body. Mount the payment router first.
+// The /webhook route inside paymentRoutes uses express.raw() and must run before express.json().
+app.use('/api/payment', paymentRoutes);
+
 // Middleware
 app.use(helmet());
 app.use(cors({
@@ -44,9 +48,6 @@ app.use(cors({
   credentials: true
 }));
 
-// 1. Stripe Webhook needs raw body. Mount the payment router first.
-// The /webhook route inside paymentRoutes uses express.raw() and must run before express.json().
-app.use('/api/payment', paymentRoutes);
 
 // 2. Apply general JSON parsing middleware to all other routes
 app.use(express.json());
