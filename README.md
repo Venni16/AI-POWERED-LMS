@@ -11,12 +11,10 @@
     <a href="#-features">Features</a> •
     <a href="#-tech-stack">Tech Stack</a> •
     <a href="#-getting-started">Getting Started</a> •
-    <a href="#-architecture">Architecture</a> •
-    <a href="#-contributing">Contributing</a>
   </p>
 
   ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-  ![Next.js](https://img.shields.io/badge/Next.js-14-black)
+  ![Next.js](https://img.shields.io/badge/Next.js-15-black)
   ![Node.js](https://img.shields.io/badge/Node.js-18+-green)
   ![Python](https://img.shields.io/badge/Python-3.8+-yellow)
   ![Supabase](https://img.shields.io/badge/Supabase-Database-emerald)
@@ -170,18 +168,6 @@ NEXT_PUBLIC_BACKEND_URL=http://localhost:5000
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key
 ```
-
----
-
-## 🤝 Contributing
-
-We welcome contributions! Please follow these steps:
-
-1.  Fork the repository.
-2.  Create a new branch: `git checkout -b feature/your-feature-name`.
-3.  Make your changes and commit them: `git commit -m 'Add some feature'`.
-4.  Push to the branch: `git push origin feature/your-feature-name`.
-5.  Submit a pull request.
 
 ---
 
