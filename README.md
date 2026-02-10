@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="frontend/public/webtitleimg1.jpg" alt="Vortex LMS Banner" width="100%">
+  <img src="frontend/public/webtitleimg1.jpg" alt="Vortex LMS Banner" width="25%" height="25%">
   
   <h1>🌪️ Vortex AI-Powered Learning Management System</h1>
   
