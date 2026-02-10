@@ -100,8 +100,6 @@ The system follows a microservices-inspired architecture:
 3.  **AI Services**: Python-based FastAPI services for heavy lifting (summarization, recommendations).
 4.  **Database & Storage**: Managed Supabase instance.
 
-![Architecture Diagram](Architecture.tldr) *(Requires tldraw to view)*
-
 ---
 
 ## 🏁 Getting Started
@@ -172,16 +170,6 @@ NEXT_PUBLIC_BACKEND_URL=http://localhost:5000
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key
 ```
-
----
-
-## 📸 Screenshots
-
-*(Add your screenshots here)*
-
-| Student Dashboard | Instructor Panel |
-|:---:|:---:|
-| ![Student Dashboard](frontend/public/path/to/screenshot1.png) | ![Instructor Panel](frontend/public/path/to/screenshot2.png) |
 
 ---
 
